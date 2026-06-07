@@ -879,6 +879,10 @@
           <span class="refresh-btn-text">Refresh</span>
           <span class="button-spinner" aria-hidden="true"></span>
         </button>
+        <button class="secondary refresh-btn" onclick="fullScanNow()" id="fullScanBtn" type="button" aria-live="polite" aria-busy="false" disabled title="Full scan checks every Gmail thread from June 2026 onward, then Refresh goes back to incremental checking.">
+          <span class="refresh-btn-text">Full Scan</span>
+          <span class="button-spinner" aria-hidden="true"></span>
+        </button>
       </div>
     </header>
 
@@ -1043,19 +1047,23 @@
       setTimeout(() => { toast.style.display = "none"; }, 5200);
     }
 
-    function setRefreshButtonLoading(isLoading) {
+    function setRefreshButtonLoading(isLoading, targetButtonId = "refreshBtn") {
       const refreshBtn = document.getElementById("refreshBtn");
-      if (!refreshBtn) return;
+      const fullScanBtn = document.getElementById("fullScanBtn");
+      const buttons = [refreshBtn, fullScanBtn].filter(Boolean);
       const locked = isLoading || !state.pageLoaded;
-      refreshBtn.disabled = locked;
-      refreshBtn.classList.toggle("loading", isLoading);
-      refreshBtn.setAttribute("aria-busy", isLoading ? "true" : "false");
+      buttons.forEach(button => {
+        button.disabled = locked;
+        const isTarget = button.id === targetButtonId;
+        button.classList.toggle("loading", isLoading && isTarget);
+        button.setAttribute("aria-busy", isLoading && isTarget ? "true" : "false");
+      });
     }
 
-    function setLoading(isLoading, text = "Working...", showRefreshSpinner = false) {
+    function setLoading(isLoading, text = "Working...", showRefreshSpinner = false, targetButtonId = "refreshBtn") {
       document.getElementById("loadingBox").style.display = isLoading ? "flex" : "none";
       document.getElementById("statusText").textContent = isLoading ? text : "Ready";
-      if (showRefreshSpinner) setRefreshButtonLoading(isLoading);
+      if (showRefreshSpinner) setRefreshButtonLoading(isLoading, targetButtonId);
     }
 
     async function loadDashboard(options = {}) {
@@ -1335,7 +1343,11 @@
     }
 
     async function refreshNow() {
-      await scanGmail({ silent: false, automatic: false, forceFull: false, showRefreshSpinner: true });
+      await scanGmail({ silent: false, automatic: false, forceFull: false, showRefreshSpinner: true, buttonId: "refreshBtn" });
+    }
+
+    async function fullScanNow() {
+      await scanGmail({ silent: false, automatic: false, forceFull: true, showRefreshSpinner: true, buttonId: "fullScanBtn" });
     }
 
     function triggerInitialAutoScan() {
@@ -1365,8 +1377,10 @@
       if (state.isScanning) return;
       state.isScanning = true;
       const showSpinner = options.showRefreshSpinner !== false;
+      const buttonId = options.buttonId || "refreshBtn";
+      const loadingText = options.forceFull ? "Running full scan from June 2026..." : "Checking for new emails...";
       try {
-        setLoading(true, options.automatic ? "Checking for new emails..." : "Checking for new emails...", showSpinner);
+        setLoading(true, loadingText, showSpinner, buttonId);
         const data = await api("/api/scan", {
           method: "POST",
           body: JSON.stringify({ force_full: Boolean(options.forceFull) })
@@ -1374,15 +1388,17 @@
         if (!options.silent) {
           const checked = data.emails_checked ?? 0;
           const accepted = data.emails_accepted ?? 0;
-          const newerThan = data.incremental_newer_than ? ` Newer than ${formatSimpleTime(data.incremental_newer_than)}.` : "";
-          showToast(`Refresh complete.${newerThan} Checked ${checked} possible email threads, added ${accepted}, prepared ${data.suggested_replies || 0} suggested replies, auto-sent ${data.auto_orders_sent || 0} order welcomes.`);
+          const renewals = data.renewal_added ?? 0;
+          const newerThan = data.incremental_newer_than && !data.full_scan ? ` Newer than ${formatSimpleTime(data.incremental_newer_than)}.` : "";
+          const label = data.full_scan ? "Full scan complete." : "Refresh complete.";
+          showToast(`${label}${newerThan} Checked ${checked} possible email threads, added ${accepted}, renewal requests ${renewals}, prepared ${data.suggested_replies || 0} suggested replies, auto-sent ${data.auto_orders_sent || 0} order welcomes.`);
         }
         await loadDashboard({ silent: true });
       } catch (error) {
         if (!options.silent) showToast(error.message);
       } finally {
         state.isScanning = false;
-        setLoading(false, "Ready", showSpinner);
+        setLoading(false, "Ready", showSpinner, buttonId);
       }
     }
 
