@@ -182,6 +182,33 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .refresh-btn {
+      position: relative;
+      min-width: 124px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 3px solid rgba(5, 5, 5, .18);
+      border-top-color: #050505;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    .refresh-btn.loading {
+      opacity: .85;
+      pointer-events: none;
+    }
+
+    .refresh-btn.loading .refresh-btn-text { display: none; }
+    .refresh-btn.loading .button-spinner { display: inline-block; }
+
     .workspace {
       width: 100%;
       display: grid;
@@ -596,6 +623,37 @@
     }
 
 
+    .auth-banner {
+      position: fixed;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      width: min(520px, calc(100vw - 28px));
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: #ffffff;
+      color: #050505;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 6px;
+      padding: 13px 14px;
+      z-index: 140;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+
+    .auth-banner.open { display: flex; }
+
+    .auth-banner button {
+      min-width: 132px;
+      background: #050505;
+      color: white;
+      border: 1px solid #050505;
+    }
+
+
 
     .modal-backdrop {
       position: fixed;
@@ -817,8 +875,10 @@
 
       <div class="actions">
         <button class="kill-switch" onclick="toggleAutoReply()" id="killSwitchBtn">Auto Reply: On</button>
-        <button class="primary" onclick="scanGmail()" id="scanBtn">Scan Gmail</button>
-        <button class="secondary" onclick="refreshNow()">Refresh</button>
+        <button class="secondary refresh-btn loading" onclick="refreshNow()" id="refreshBtn" type="button" aria-live="polite" aria-busy="true" disabled>
+          <span class="refresh-btn-text">Refresh</span>
+          <span class="button-spinner" aria-hidden="true"></span>
+        </button>
       </div>
     </header>
 
@@ -899,10 +959,14 @@
       </div>
 
       <div class="modal-actions">
-        <button class="danger" type="button" id="modalRemoveBtn">Remove Suggestion</button>
         <button class="success" type="button" id="modalSendBtn">Send Email</button>
       </div>
     </div>
+  </div>
+
+  <div class="auth-banner" id="gmailAuthBanner">
+    <span id="gmailAuthMessage">Please sign in again.</span>
+    <button type="button" id="gmailAuthBtn">Sign in again</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -923,10 +987,27 @@
       },
       currentModalThreadId: "",
       isScanning: false,
+      pageLoaded: false,
+      gmailAuthUrl: "",
       autoScanTimer: null,
       dashboardTimer: null,
       hasInitialAutoScan: false
     };
+
+    function showGmailAuthBanner(message, authUrl) {
+      const banner = document.getElementById("gmailAuthBanner");
+      const messageEl = document.getElementById("gmailAuthMessage");
+      const btn = document.getElementById("gmailAuthBtn");
+      state.gmailAuthUrl = authUrl || "/auth/gmail";
+      messageEl.textContent = message || "Please sign in again.";
+      btn.onclick = () => { window.location.href = state.gmailAuthUrl; };
+      banner.classList.add("open");
+    }
+
+    function hideGmailAuthBanner() {
+      const banner = document.getElementById("gmailAuthBanner");
+      if (banner) banner.classList.remove("open");
+    }
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -934,8 +1015,24 @@
         ...options
       });
 
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = {};
+      }
+
+      if ((response.status === 401 || response.status === 403) && data && data.auth_required) {
+        if (data.auth_type === "gmail") {
+          showGmailAuthBanner(data.error || "Please sign in again.", data.auth_url || "/auth/gmail");
+        } else if (data.login_url) {
+          window.location.href = data.login_url;
+        }
+        throw new Error(data.error || "Please sign in again.");
+      }
+
       if (!response.ok || data.ok === false) throw new Error(data.error || "Request failed");
+      hideGmailAuthBanner();
       return data;
     }
 
@@ -946,15 +1043,24 @@
       setTimeout(() => { toast.style.display = "none"; }, 5200);
     }
 
-    function setLoading(isLoading, text = "Working...") {
-      document.getElementById("loadingBox").style.display = isLoading ? "flex" : "none";
-      document.getElementById("scanBtn").disabled = isLoading;
-      document.getElementById("statusText").textContent = isLoading ? text : "Ready";
+    function setRefreshButtonLoading(isLoading) {
+      const refreshBtn = document.getElementById("refreshBtn");
+      if (!refreshBtn) return;
+      const locked = isLoading || !state.pageLoaded;
+      refreshBtn.disabled = locked;
+      refreshBtn.classList.toggle("loading", isLoading);
+      refreshBtn.setAttribute("aria-busy", isLoading ? "true" : "false");
     }
 
-    async function loadDashboard() {
+    function setLoading(isLoading, text = "Working...", showRefreshSpinner = false) {
+      document.getElementById("loadingBox").style.display = isLoading ? "flex" : "none";
+      document.getElementById("statusText").textContent = isLoading ? text : "Ready";
+      if (showRefreshSpinner) setRefreshButtonLoading(isLoading);
+    }
+
+    async function loadDashboard(options = {}) {
       try {
-        setLoading(true, "Refreshing dashboard...");
+        if (options.showRefreshSpinner) setLoading(true, "Loading dashboard...", true);
         const data = await api("/api/dashboard");
 
         document.getElementById("connectedEmail").textContent = data.connected_email || "Connected Gmail";
@@ -972,11 +1078,10 @@
         syncKillSwitchButton();
         startAutoRefreshLoops();
         renderSection();
-        triggerInitialAutoScan();
       } catch (error) {
-        showToast(error.message);
+        if (!options.silent) showToast(error.message);
       } finally {
-        setLoading(false);
+        if (options.showRefreshSpinner) setLoading(false, "Ready", true);
       }
     }
 
@@ -1025,7 +1130,7 @@
       const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
 
       if (!orders.length) {
-        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Scan Gmail</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No orders from June 2026 onward were found yet. Click <strong>Refresh</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1061,8 +1166,8 @@
       const title = category === "work" ? "Work Email" : "Personal Email";
       const badge = "";
       const note = category === "work"
-        ? "Only important, reply-worthy work emails are shown here, and they stay sorted with the newest at the top."
-        : "Only important, reply-worthy personal emails are shown here, and they stay sorted with the newest at the top.";
+        ? "Only important, reply-worthy work emails from June 2026 onward are shown here, and they stay sorted with the newest at the top."
+        : "Only important, reply-worthy personal emails from June 2026 onward are shown here, and they stay sorted with the newest at the top.";
 
       setHeader(title, badge, note);
       const list = document.getElementById("mainList");
@@ -1072,7 +1177,7 @@
       );
 
       if (!emails.length) {
-        list.innerHTML = `<div class="empty">No ${escapeHtml(category)} emails need a response right now. Click <strong>Scan Gmail</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No ${escapeHtml(category)} emails from June 2026 onward need a response right now. Click <strong>Refresh</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1109,7 +1214,6 @@
           ${reply ? `
             <div class="card-actions">
               <button class="success" onclick="sendSuggestedReply('${escapeForJs(reply.thread_id)}')">Send Email</button>
-              <button class="danger" onclick="removeSuggestedReply('${escapeForJs(reply.thread_id)}')">Remove Suggestion</button>
             </div>
           ` : ""}
         </article>
@@ -1170,7 +1274,6 @@
       document.getElementById("modalBody").value = reply.body || "";
 
       document.getElementById("modalSendBtn").onclick = () => sendSuggestedReply(threadId);
-      document.getElementById("modalRemoveBtn").onclick = () => removeSuggestedReply(threadId);
       document.getElementById("replyModal").classList.add("open");
       document.getElementById("modalBody").focus();
     }
@@ -1190,10 +1293,11 @@
     }
 
     function renderSummary() {
-      setHeader("AI Summary", "Daily review", "A clean overview of what the latest scan found.");
-      const friendly = state.briefing && !state.briefing.includes("No summary yet")
-        ? state.briefing.replaceAll("# Daily Gmail Briefing", "Daily Gmail Briefing")
-        : "No summary yet. Click Scan Gmail to review recent emails.";
+      setHeader("AI Summary", "June 2026 onward", "A clean overview of what the latest scan found from June 2026 onward.");
+      const hasBriefing = state.briefing && !/No (summary|briefing) yet/i.test(state.briefing);
+      const friendly = hasBriefing
+        ? state.briefing.replaceAll("# Daily Gmail Briefing", "AI Summary").replaceAll("# AI Summary", "AI Summary")
+        : "No summary yet. Click Refresh to check emails from June 2026 onward.";
       document.getElementById("mainList").innerHTML = `<div class="briefing">${escapeHtml(friendly)}</div>`;
     }
 
@@ -1231,21 +1335,17 @@
     }
 
     async function refreshNow() {
-      await scanGmail({ silent: false, automatic: false });
+      await scanGmail({ silent: false, automatic: false, forceFull: false, showRefreshSpinner: true });
     }
 
     function triggerInitialAutoScan() {
-      if (state.hasInitialAutoScan || state.automationSettings.auto_scan_enabled === false) return;
-      state.hasInitialAutoScan = true;
-      setTimeout(() => {
-        if (!state.isScanning) scanGmail({ silent: true, automatic: true });
-      }, 900);
+      // Initial checking is handled by bootApp so the Refresh button can show a real loading state.
     }
 
     function startAutoRefreshLoops() {
       if (!state.dashboardTimer) {
         state.dashboardTimer = setInterval(() => {
-          if (!state.isScanning) loadDashboard();
+          if (!state.isScanning) loadDashboard({ silent: true });
         }, 30000);
       }
 
@@ -1256,7 +1356,7 @@
 
       if (state.automationSettings.auto_scan_enabled !== false) {
         state.autoScanTimer = setInterval(() => {
-          if (!state.isScanning) scanGmail({ silent: true, automatic: true });
+          if (!state.isScanning) scanGmail({ silent: true, automatic: true, showRefreshSpinner: false });
         }, intervalMs);
       }
     }
@@ -1264,18 +1364,25 @@
     async function scanGmail(options = {}) {
       if (state.isScanning) return;
       state.isScanning = true;
+      const showSpinner = options.showRefreshSpinner !== false;
       try {
-        setLoading(true, options.automatic ? "Auto scanning Gmail..." : "Scanning Gmail...");
-        const data = await api("/api/scan", { method: "POST" });
+        setLoading(true, options.automatic ? "Checking for new emails..." : "Checking for new emails...", showSpinner);
+        const data = await api("/api/scan", {
+          method: "POST",
+          body: JSON.stringify({ force_full: Boolean(options.forceFull) })
+        });
         if (!options.silent) {
-          showToast(`Scan complete. Auto-sent ${data.auto_orders_sent || 0} order welcomes, prepared ${data.order_replies_waiting || 0} order replies for approval, skipped ${data.failed_orders_skipped || 0} failed orders, and prepared ${data.suggested_replies || 0} suggested replies.`);
+          const checked = data.emails_checked ?? 0;
+          const accepted = data.emails_accepted ?? 0;
+          const newerThan = data.incremental_newer_than ? ` Newer than ${formatSimpleTime(data.incremental_newer_than)}.` : "";
+          showToast(`Refresh complete.${newerThan} Checked ${checked} possible email threads, added ${accepted}, prepared ${data.suggested_replies || 0} suggested replies, auto-sent ${data.auto_orders_sent || 0} order welcomes.`);
         }
-        await loadDashboard();
+        await loadDashboard({ silent: true });
       } catch (error) {
-        showToast(error.message);
+        if (!options.silent) showToast(error.message);
       } finally {
         state.isScanning = false;
-        setLoading(false);
+        setLoading(false, "Ready", showSpinner);
       }
     }
 
@@ -1446,7 +1553,19 @@
       return formatEmailDateTime(value);
     }
 
-    loadDashboard();
+    async function bootApp() {
+      state.pageLoaded = false;
+      setRefreshButtonLoading(true);
+      try {
+        await loadDashboard({ silent: true, showRefreshSpinner: true });
+        await scanGmail({ silent: true, automatic: true, forceFull: false, showRefreshSpinner: true });
+      } finally {
+        state.pageLoaded = true;
+        setRefreshButtonLoading(false);
+      }
+    }
+
+    bootApp();
   </script>
 </body>
 </html>

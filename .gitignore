@@ -16,6 +16,7 @@ draft_index.json
 pending_replies.json
 pending_suggestions.json
 categorized_emails.json
+last_scan_debug.json
 
 app.log
 nohup.out
