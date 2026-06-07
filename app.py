@@ -1574,10 +1574,6 @@ def _catalog_text(item: Dict) -> str:
     ]).lower()
 
 def _catalog_item_looks_unimportant(item: Dict) -> bool:
-    # EprepStation renewal forms are automated/no-reply style emails, but they are
-    # intentionally actionable. Never hide them because they contain no-reply/do-not-reply text.
-    if item.get("renewal_request"):
-        return False
     text = _catalog_text(item)
     bad_terms = [
         "order has shipped", "has shipped", "has been shipped", "on the way", "out for delivery",
@@ -1599,12 +1595,6 @@ def _is_catalog_email_visible(item: Dict) -> bool:
         return False
     if item.get("filtered_out") or item.get("status") == "Filtered Out":
         return False
-
-    # Renewal requests are synthetic dashboard items created from EprepStation form
-    # emails. They must be visible even though the source email often looks automated.
-    if item.get("renewal_request"):
-        return bool(item.get("reply")) or item.get("status") in ("Needs Reply", "Already Replied", "Suggestion Removed")
-
     if _catalog_item_looks_unimportant(item):
         return False
     if item.get("category") not in ("work", "personal"):
@@ -3566,10 +3556,6 @@ def build_general_email_item(service, thread: Dict, connected_email: str, person
 
 
 def _catalog_item_looks_unimportant(item: Dict) -> bool:
-    # EprepStation renewal forms are automated/no-reply style emails, but they are
-    # intentionally actionable. Never hide them because they contain no-reply/do-not-reply text.
-    if item.get("renewal_request"):
-        return False
     text = _catalog_text(item)
     bad_terms = [
         "order has shipped", "has shipped", "has been shipped", "on the way", "out for delivery",
@@ -4054,125 +4040,128 @@ def api_remove_reply(thread_id: str):
 app.view_functions["api_remove_reply"] = api_remove_reply
 
 
-
 # ---------------------------------------------------------------------
-# FINAL PATCH: explicit full scan button support + June-forward renewal recovery
+# MINIMAL RENEWAL PATCH: dedupe + simple renewal card original message
 # ---------------------------------------------------------------------
-# Keep secrets out of GitHub defaults. The login route reads these globals at runtime.
-APP_LOGIN_USERNAME = os.getenv("APP_LOGIN_USERNAME") or os.getenv("APP_USERNAME") or ""
-APP_LOGIN_PASSWORD = os.getenv("APP_LOGIN_PASSWORD") or os.getenv("APP_PASSWORD") or ""
+# This patch is intentionally small and only affects EprepStation renewal
+# request items. It does not alter normal email screening/replies.
+import hashlib
 
-FULL_SCAN_MAX_THREADS = int(os.getenv("FULL_SCAN_MAX_THREADS", "2500"))
-RENEWAL_BACKFILL_MAX_THREADS = int(os.getenv("RENEWAL_BACKFILL_MAX_THREADS", "300"))
-RENEWAL_REQUEST_VERSION = "2026-06-renewal-fullscan-v4"
+RENEWAL_REQUEST_PATCH_VERSION = "2026-06-renewal-dedupe-visual-only-v1"
 
 
-def _line_value_after_label(lines: List[str], labels: List[str]) -> str:
-    """Extract values from EprepStation table-like text.
+def _renewal_norm(value: str) -> str:
+    value = (value or "").strip().lower()
+    value = re.sub(r"\s+", " ", value)
+    return value
 
-    The Gmail body often comes through as:
-      Your Name\nYash Jaysan\nYour User Name\nyash...\nExam you are taking\nCourse Name
-    but sometimes the label and value can appear on the same line. This parser
-    handles both formats.
-    """
-    cleaned = [re.sub(r"\s+", " ", str(line or "")).strip() for line in lines]
-    cleaned = [line for line in cleaned if line]
-    normalized_labels = [re.sub(r"\s+", " ", label.lower()).strip() for label in labels]
-    for index, line in enumerate(cleaned):
-        lower = line.lower().strip()
-        for label in normalized_labels:
-            if lower == label:
-                for next_line in cleaned[index + 1:index + 5]:
-                    next_lower = next_line.lower().strip()
-                    if next_lower in normalized_labels:
-                        continue
-                    if next_lower in ("question", "answer", "comments"):
-                        continue
-                    return next_line.strip()
-            if lower.startswith(label + ":") or lower.startswith(label + " -"):
-                value = re.sub(r"^" + re.escape(label) + r"\s*[:\-]?\s*", "", line, flags=re.IGNORECASE).strip()
-                if value:
-                    return value
+
+def _renewal_subject_matches(subject: str, body: str = "") -> bool:
+    text = f"{subject}\n{body}".lower()
+    return (
+        "account renewal request received" in text
+        and ("eprepstation" in text or "your e-mail address" in text or "your email address" in text)
+    )
+
+
+def _renewal_extract_field(text: str, labels: List[str]) -> str:
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    for label in labels:
+        # Capture the value on the same line, allowing the HTML-to-text extraction to add spacing.
+        pattern = rf"{re.escape(label)}\s*[:\-]?\s*([^\n]+)"
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            value = re.sub(r"\s+", " ", match.group(1)).strip(" -:\t")
+            if value:
+                return value
     return ""
 
 
-def _extract_renewal_request_fields(text: str) -> Dict[str, str]:
-    text = clean_preview_text(text or "", 12000)
-    lines = text.splitlines()
-    name = _line_value_after_label(lines, ["Your Name", "Name"])
-    username = _line_value_after_label(lines, ["Your User Name", "Your Username", "Username", "User Name"])
-    email = _line_value_after_label(lines, ["Your E-mail Address", "Your Email Address", "E-mail Address", "Email Address", "Email"])
-    course = _line_value_after_label(lines, ["Exam you are taking", "Exam your are taking", "Course", "Course Name", "Exam"])
-
-    # Fallbacks for bodies where table spacing got flattened.
-    if not email:
-        emails = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
-        for candidate in emails:
-            lowered = candidate.lower()
-            if "eprepstation" not in lowered and "pharmacyprep" not in lowered:
-                email = candidate
-                break
-    if not username and email:
-        username = email
-    if not name and email:
-        name = infer_customer_name_from_email(email) or "Student"
-
-    # Course often follows the exact label in flattened text.
-    if not course:
-        course_match = re.search(r"Exam\s+(?:you|your)\s+are\s+taking\s*[:\-]?\s*(.+?)(?:\n|Comments|$)", text, flags=re.IGNORECASE | re.DOTALL)
-        if course_match:
-            course = re.sub(r"\s+", " ", course_match.group(1)).strip()
-    course = re.sub(r"\s+", " ", course or "").strip()
-    name = re.sub(r"\s+", " ", name or "").strip()
-    email = (email or "").strip()
-    username = (username or "").strip()
-    return {"name": name, "username": username, "email": email, "course": course}
+def _renewal_extract_email(text: str) -> str:
+    explicit = _renewal_extract_field(text, [
+        "Your E-mail Address",
+        "Your Email Address",
+        "E-mail Address",
+        "Email Address",
+        "Email",
+    ])
+    if explicit:
+        match = re.search(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", explicit)
+        if match:
+            return match.group(0).strip()
+    # Fallback: choose the first non-PharmacyPrep/EprepStation email from the body.
+    for email in re.findall(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", text or ""):
+        lowered = email.lower()
+        if "pharmacyprep.com" not in lowered and "eprepstation.com" not in lowered and "wordpress" not in lowered:
+            return email.strip()
+    return ""
 
 
-def _is_eprepstation_renewal_request(thread: Dict) -> bool:
-    text = combined_thread_text(thread)
-    lowered = text.lower()
-    latest = latest_inbound_email_for_dashboard(thread, DEFAULT_CONNECTED_EMAIL)
-    subject = (latest.get("subject", "") or "").lower()
-
-    has_renewal_subject = "account renewal request" in subject and "eprepstation" in subject
-    has_form_fields = (
-        "your name" in lowered
-        and ("your user name" in lowered or "your username" in lowered)
-        and ("your e-mail address" in lowered or "your email address" in lowered)
-        and ("exam you are taking" in lowered or "exam your are taking" in lowered)
-    )
-    # Keep this separate from the $214 account renewal/payment/order emails.
-    looks_like_payment_renewal = ("$214" in lowered or "214.00" in lowered) and not has_form_fields
-    if looks_like_payment_renewal:
-        return False
-    return bool(has_renewal_subject or ("eprepstation" in lowered and "account renewal request" in lowered and has_form_fields))
+def _renewal_clean_name(name: str, email: str = "") -> str:
+    name = re.sub(r"\s+", " ", (name or "")).strip(" -:\t")
+    bad = {"no reply", "no-reply", "noreply", "wordpress", "eprepstation", "customer", "student"}
+    if name and name.lower() not in bad and "@" not in name:
+        return name.title() if name.isupper() or name.islower() else name
+    return infer_customer_name_from_email(email) or "Customer"
 
 
-def _build_renewal_email_item(thread: Dict, connected_email: str) -> Optional[Dict]:
-    if not _thread_is_on_or_after_scan_start(thread, connected_email):
-        return None
-    text = combined_thread_text(thread)
-    fields = _extract_renewal_request_fields(text)
-    student_email = fields.get("email", "").strip()
-    course = fields.get("course", "").strip()
-    name = fields.get("name", "").strip() or infer_customer_name_from_email(student_email) or "Student"
-    username = fields.get("username", "").strip() or student_email
-    if not student_email or not course:
-        return None
+def _renewal_extract_details_from_thread(thread: Dict, connected_email: str = "") -> Optional[Dict]:
+    for email in thread.get("emails", []):
+        subject = email.get("subject", "") or ""
+        body = email.get("body", "") or ""
+        text = f"Subject: {subject}\n\n{body}"
+        if not _renewal_subject_matches(subject, body):
+            continue
+        student_email = _renewal_extract_email(text)
+        course = _renewal_extract_field(text, [
+            "Exam you are taking",
+            "Exam your are taking",
+            "Exam you are Taking",
+            "Course",
+            "Course Name",
+            "Exam",
+        ])
+        name = _renewal_extract_field(text, ["Your Name", "Name"])
+        username = _renewal_extract_field(text, ["Your User Name", "Your Username", "Username", "User Name"])
+        name = _renewal_clean_name(name, student_email)
+        if not student_email or not course:
+            return None
+        course = re.sub(r"\s+", " ", course).strip(" -:\t")
+        return {
+            "student_name": name,
+            "student_email": student_email,
+            "username": username,
+            "course": course,
+            "source_subject": subject,
+            "source_from": email.get("from", ""),
+            "source_to": email.get("to", ""),
+            "source_date": email.get("date", ""),
+            "source_thread_id": thread.get("thread_id", ""),
+            "source_message_id": email.get("gmail_message_id", ""),
+        }
+    return None
 
-    latest = latest_inbound_email_for_dashboard(thread, connected_email)
-    latest_id = latest_inbound_message_id(thread, connected_email)
-    synthetic_id = f"renewal_{latest_id or thread.get('thread_id', '')}"
-    first_name = name.split()[0] if name else "there"
-    subject = f"Account renewal request - {course}"
-    body = f"""Hello {first_name},
 
-Thank you for submitting your account renewal request for the {course}.
+def _renewal_key(student_email: str, course: str) -> str:
+    raw = f"{_renewal_norm(student_email)}|{_renewal_norm(course)}"
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
-We have received the renewal request for the account connected to {student_email}. We will review the course/account details and follow up with the next steps to restore or extend access for this course.
 
-If your original course account used a different email address than {student_email}, please reply with that email so we can match the renewal correctly.
+def _renewal_stable_thread_id(student_email: str, course: str) -> str:
+    return f"renewal_{_renewal_key(student_email, course)}"
+
+
+def _renewal_original_body(student_email: str, course: str) -> str:
+    return f"Student email: {student_email}\nCourse: {course}"
+
+
+def _renewal_reply_body(name: str, course: str) -> str:
+    first_name = (name or "there").strip().split()[0] if (name or "").strip() else "there"
+    return f"""Hello {first_name},
+
+Thank you for submitting your account renewal request for {course}. We have received the request and will review the account details connected to your course access.
+
+We will follow up shortly with the renewal status and any next steps needed to restore or extend your access.
 
 Regards
 Pharmacy Prep
@@ -4180,322 +4169,265 @@ Phone: 416-223-PREP (7737)
 WhatsApp: 647-221-0457
 www.pharmacyprep.com"""
 
+
+def _build_renewal_catalog_item(details: Dict, existing: Optional[Dict] = None) -> Dict:
+    existing = existing or {}
+    name = details.get("student_name") or "Customer"
+    student_email = details.get("student_email", "")
+    course = details.get("course", "")
+    stable_id = _renewal_stable_thread_id(student_email, course)
+    already_replied = existing.get("status") == "Already Replied" or bool(existing.get("reply_sent_at"))
+    reply = None if already_replied else {
+        "thread_id": stable_id,
+        "mode": "new_email",
+        "to": student_email,
+        "subject": f"Account renewal request - {course}",
+        "body": _renewal_reply_body(name, course),
+    }
     return {
-        "thread_id": synthetic_id,
-        "source_thread_id": thread.get("thread_id", ""),
-        "renewal_request": True,
-        "renewal_request_version": RENEWAL_REQUEST_VERSION,
+        **existing,
+        "thread_id": stable_id,
         "category": "work",
         "title": f"Account renewal request from {name}",
-        "important_reason": f"{name} submitted an EprepStation account renewal request for {course}; the suggested reply is addressed to {student_email}.",
-        "status": "Needs Reply",
+        "important_reason": f"{name} submitted an EprepStation account renewal request for {course}.",
+        "status": "Already Replied" if already_replied else "Needs Reply",
+        "reply_sent_at": existing.get("reply_sent_at", ""),
+        "latest_inbound_id": details.get("source_message_id", existing.get("latest_inbound_id", "")),
+        "sort_ts": email_date_to_sort_key(details.get("source_date", "")) or existing.get("sort_ts", ""),
         "ai_screened": True,
+        "screen_confidence": 1.0,
         "screening_version": EMAIL_SCREENING_VERSION,
-        "latest_inbound_id": latest_id,
-        "sort_ts": latest_inbound_sort_key(thread, connected_email),
-        "original": {
-            "from": latest.get("from", ""),
-            "to": latest.get("to", ""),
-            "date": latest.get("date", ""),
-            "subject": latest.get("subject", "Account Renewal Request Received from EprepStation.com"),
-            "body": clean_preview_text(latest.get("body", ""), 2400),
-        },
+        "is_renewal_request": True,
+        "renewal_patch_version": RENEWAL_REQUEST_PATCH_VERSION,
         "renewal_details": {
-            "name": name,
-            "username": username,
-            "email": student_email,
+            "student_name": name,
+            "student_email": student_email,
+            "username": details.get("username", ""),
             "course": course,
+            "source_thread_id": details.get("source_thread_id", ""),
         },
-        "reply": {
-            "thread_id": synthetic_id,
+        "filtered_out": False,
+        "original": {
+            "from": details.get("source_from", ""),
+            "to": details.get("source_to", ""),
+            "date": details.get("source_date", ""),
+            "subject": details.get("source_subject", "Account Renewal Request Received from EprepStation.com"),
+            "body": _renewal_original_body(student_email, course),
+        },
+        "reply": reply,
+    }
+
+
+def _item_renewal_details(item: Dict) -> Optional[Dict]:
+    if not isinstance(item, dict):
+        return None
+    details = item.get("renewal_details") if isinstance(item.get("renewal_details"), dict) else {}
+    original = item.get("original", {}) if isinstance(item.get("original", {}), dict) else {}
+    reply = item.get("reply", {}) if isinstance(item.get("reply", {}), dict) else {}
+    title = item.get("title", "") or ""
+    subject = original.get("subject", "") or ""
+    body = original.get("body", "") or ""
+    looks_like = bool(item.get("is_renewal_request")) or "account renewal request" in title.lower() or _renewal_subject_matches(subject, body)
+    if not looks_like:
+        return None
+    student_email = details.get("student_email") or reply.get("to") or _renewal_extract_email(body)
+    course = details.get("course") or _renewal_extract_field(body, ["Course", "Exam you are taking", "Exam your are taking", "Exam"])
+    name = details.get("student_name") or re.sub(r"^account renewal request from\s+", "", title, flags=re.IGNORECASE).strip()
+    name = _renewal_clean_name(name, student_email)
+    if not student_email or not course:
+        return None
+    return {
+        "student_name": name,
+        "student_email": student_email,
+        "course": course,
+        "username": details.get("username", ""),
+    }
+
+
+def _normalize_renewal_item_for_display(item: Dict) -> Dict:
+    details = _item_renewal_details(item)
+    if not details:
+        return item
+    normalized = deepcopy(item)
+    stable_id = _renewal_stable_thread_id(details["student_email"], details["course"])
+    normalized["thread_id"] = stable_id
+    normalized["category"] = "work"
+    normalized["title"] = f"Account renewal request from {details['student_name']}"
+    normalized["important_reason"] = f"{details['student_name']} submitted an EprepStation account renewal request for {details['course']}."
+    normalized["status"] = normalized.get("status") or "Needs Reply"
+    normalized["filtered_out"] = False
+    normalized["ai_screened"] = True
+    normalized["screen_confidence"] = 1.0
+    normalized["screening_version"] = EMAIL_SCREENING_VERSION
+    normalized["is_renewal_request"] = True
+    normalized["renewal_patch_version"] = RENEWAL_REQUEST_PATCH_VERSION
+    normalized["renewal_details"] = details
+    original = normalized.setdefault("original", {})
+    original["body"] = _renewal_original_body(details["student_email"], details["course"])
+    if not original.get("subject"):
+        original["subject"] = "Account Renewal Request Received from EprepStation.com"
+    if normalized.get("status") != "Already Replied":
+        normalized["reply"] = {
+            "thread_id": stable_id,
             "mode": "new_email",
-            "to": student_email,
-            "subject": subject,
-            "body": body,
-            "source_thread_id": thread.get("thread_id", ""),
-        },
-    }
+            "to": details["student_email"],
+            "subject": f"Account renewal request - {details['course']}",
+            "body": _renewal_reply_body(details["student_name"], details["course"]),
+        }
+    return normalized
 
 
-def _renewal_backfill_queries() -> List[str]:
-    date_clause = f"after:{SCAN_START_GMAIL_AFTER}"
+def _normalize_catalog_renewals(catalog: Dict) -> Tuple[Dict, int]:
+    emails_bucket = catalog.setdefault("emails", {})
+    if not isinstance(emails_bucket, dict):
+        catalog["emails"] = {}
+        return catalog, 0
+    normalized_bucket = {}
+    changed = 0
+    for key, item in list(emails_bucket.items()):
+        details = _item_renewal_details(item)
+        if not details:
+            normalized_bucket[key] = item
+            continue
+        normalized = _normalize_renewal_item_for_display(item)
+        stable_id = _renewal_stable_thread_id(details["student_email"], details["course"])
+        existing = normalized_bucket.get(stable_id)
+        if existing:
+            # Keep an already-replied version if one exists; otherwise keep the newest sort timestamp.
+            existing_replied = existing.get("status") == "Already Replied" or bool(existing.get("reply_sent_at"))
+            normalized_replied = normalized.get("status") == "Already Replied" or bool(normalized.get("reply_sent_at"))
+            if normalized_replied and not existing_replied:
+                normalized_bucket[stable_id] = normalized
+            elif normalized.get("sort_ts", "") > existing.get("sort_ts", "") and existing_replied == normalized_replied:
+                normalized_bucket[stable_id] = normalized
+            changed += 1
+        else:
+            normalized_bucket[stable_id] = normalized
+            if key != stable_id:
+                changed += 1
+    if changed:
+        catalog["emails"] = normalized_bucket
+    return catalog, changed
+
+
+def _renewal_scan_queries() -> List[str]:
+    base = f"after:{SCAN_START_GMAIL_AFTER}"
     return [
-        f'in:anywhere {date_clause} "Account Renewal Request Received"',
-        f'in:anywhere {date_clause} "Account Renewal Request" "EprepStation"',
-        f'in:anywhere {date_clause} "Your E-mail Address" "Exam you are taking"',
-        f'in:anywhere {date_clause} "Your User Name" "Exam" "EprepStation"',
+        f'{base} "Account Renewal Request Received"',
+        f'{base} "Account Renewal Request Received from EprepStation.com"',
+        f'{base} "Your E-mail Address" "Exam"',
+        f'{base} "Exam your are taking"',
+        f'{base} "Exam you are taking"',
     ]
 
 
-def _collect_full_scan_thread_ids(service, date_clause: str) -> List[str]:
-    broad_queries = [
-        f'in:anywhere {date_clause} -in:chats -in:spam -in:trash',
-        # A second query catches some Gmail cases where broad search ranking/pagination misses form emails.
-        f'in:anywhere {date_clause} (course OR login OR access OR renewal OR request OR question OR PEBC OR exam OR order)',
-    ]
-    return _collect_thread_ids(
-        service,
-        broad_queries,
-        per_query_limit=FULL_SCAN_MAX_THREADS,
-        total_limit=FULL_SCAN_MAX_THREADS,
-    )
+def _scan_and_upsert_renewal_requests(service, catalog: Dict, connected_email: str) -> int:
+    found = 0
+    accepted = 0
+    thread_ids = _collect_thread_ids(service, _renewal_scan_queries(), per_query_limit=50, total_limit=250)
+    for thread_id in thread_ids:
+        try:
+            thread = read_thread(service, thread_id)
+            details = _renewal_extract_details_from_thread(thread, connected_email)
+            if not details:
+                continue
+            stable_id = _renewal_stable_thread_id(details["student_email"], details["course"])
+            existing = catalog.setdefault("emails", {}).get(stable_id, {})
+            catalog["emails"][stable_id] = _build_renewal_catalog_item(details, existing=existing)
+            found += 1
+            accepted += 1
+        except Exception:
+            continue
+    catalog, changed = _normalize_catalog_renewals(catalog)
+    if found or changed:
+        save_dashboard_catalog(catalog)
+    print(f"[renewal-minimal] candidates={len(thread_ids)} accepted={accepted} deduped={changed}", flush=True)
+    return accepted
 
 
-def _collect_renewal_thread_ids(service) -> List[str]:
-    return _collect_thread_ids(
-        service,
-        _renewal_backfill_queries(),
-        per_query_limit=max(50, RENEWAL_BACKFILL_MAX_THREADS // 2),
-        total_limit=RENEWAL_BACKFILL_MAX_THREADS,
-    )
+# Override visibility only for renewal items so no-reply/EprepStation automation rules do not hide them.
+_previous_is_catalog_email_visible_for_renewal = _is_catalog_email_visible
+def _is_catalog_email_visible(item: Dict) -> bool:
+    details = _item_renewal_details(item)
+    if details:
+        if not _item_is_on_or_after_scan_start(item):
+            return False
+        item = _normalize_renewal_item_for_display(item)
+        return bool(item.get("reply")) or item.get("status") == "Already Replied"
+    return _previous_is_catalog_email_visible_for_renewal(item)
 
 
-# Final override: Refresh remains incremental, Full Scan reads all June-forward threads.
-def perform_gmail_scan(force_full: bool = False) -> Dict:
-    service = get_gmail_service()
-    connected_email = get_connected_email(service)
-    personal_label_id = get_or_create_label(service, PERSONAL_LABEL)
-    work_label_id = get_or_create_label(service, WORK_LABEL)
-
+_previous_build_dashboard_payload_for_renewal = build_dashboard_payload
+def build_dashboard_payload(force_refresh: bool = False) -> Dict:
     catalog = get_dashboard_catalog()
-    catalog.setdefault("meta", {})
-    catalog.setdefault("orders", {})
-    catalog.setdefault("emails", {})
-
-    newest_existing_dt = None if force_full else _latest_catalog_datetime_for_incremental(catalog)
-    date_clause, scan_start_used = _scan_after_clause_for_catalog(catalog, force_full=force_full)
-    debug = _debug_counts_template() if "_debug_counts_template" in globals() else {"errors": []}
-    debug["scan_start"] = scan_start_used
-    debug["force_full"] = force_full
-    debug["incremental_newer_than"] = newest_existing_dt.isoformat(timespec="seconds") if newest_existing_dt else ""
-    print(f"[scan] starting Gmail scan | force_full={force_full} | date_clause={date_clause} | newer_than={debug['incremental_newer_than']}", flush=True)
-
-    if force_full:
-        email_thread_ids = _collect_full_scan_thread_ids(service, f"after:{SCAN_START_GMAIL_AFTER}")
-        order_thread_ids = _collect_thread_ids(service, _order_scan_queries(f"after:{SCAN_START_GMAIL_AFTER}"), per_query_limit=max(20, MAX_ORDER_THREADS_PER_SCAN // 2), total_limit=MAX_ORDER_THREADS_PER_SCAN)
-    else:
-        order_thread_ids = _collect_thread_ids(service, _order_scan_queries(date_clause), per_query_limit=max(10, MAX_ORDER_THREADS_PER_SCAN // 4), total_limit=MAX_ORDER_THREADS_PER_SCAN)
-        email_queries = _email_scan_queries(date_clause, connected_email)
-        email_thread_ids = _collect_thread_ids(service, email_queries, per_query_limit=max(30, MAX_EMAIL_THREADS_PER_SCAN // max(1, len(email_queries))), total_limit=MAX_EMAIL_THREADS_PER_SCAN)
-
-    renewal_thread_ids = _collect_renewal_thread_ids(service)
-    for tid in renewal_thread_ids:
-        if tid not in email_thread_ids:
-            email_thread_ids.insert(0, tid)
-
-    debug["order_threads_found"] = len(order_thread_ids)
-    debug["email_threads_found"] = len(email_thread_ids)
-    debug["renewal_threads_found"] = len(renewal_thread_ids)
-    print(f"[scan] Gmail returned {len(order_thread_ids)} order thread(s), {len(email_thread_ids)} possible email thread(s), {len(renewal_thread_ids)} renewal candidate(s)", flush=True)
-
-    auto_orders_sent = 0
-    order_replies_waiting = 0
-    suggested_replies = 0
-    skipped_failed_orders = 0
-    processed_order_threads = set()
-    ai_screenings_used = 0
-    renewal_added = 0
-
-    def _thread_newer_than_catalog(thread: Dict) -> bool:
-        if force_full or not newest_existing_dt:
-            return True
-        latest = latest_inbound_email_for_dashboard(thread, connected_email)
-        latest_dt = email_date_to_datetime(latest.get("date", ""))
-        return bool(latest_dt and latest_dt != datetime.min and latest_dt > newest_existing_dt)
-
-    for thread_id in order_thread_ids:
-        try:
-            thread = read_thread(service, thread_id)
-            if not _thread_newer_than_catalog(thread):
+    catalog, changed = _normalize_catalog_renewals(catalog)
+    if changed:
+        save_dashboard_catalog(catalog)
+        invalidate_dashboard_cache()
+    payload = _previous_build_dashboard_payload_for_renewal(force_refresh=force_refresh)
+    seen = set()
+    cleaned_emails = []
+    for item in payload.get("emails", []):
+        details = _item_renewal_details(item)
+        if details:
+            item = _normalize_renewal_item_for_display(item)
+            key = _renewal_key(details["student_email"], details["course"])
+            if key in seen:
                 continue
-            order_item = build_order_item(service, thread, connected_email)
-            if not order_item:
-                continue
-            processed_order_threads.add(thread_id)
-            if order_item.get("order_number") == "Unknown":
-                skipped_failed_orders += 1
-            order_item, did_send = _auto_send_order_if_safe(service, thread, connected_email, order_item)
-            if did_send:
-                auto_orders_sent += 1
-            if order_item.get("reply"):
-                order_replies_waiting += 1
-            _upsert_order_in_catalog(catalog, thread_id, order_item)
-        except GmailAuthRequired:
-            raise
-        except Exception as error:
-            debug["email_errors"] = debug.get("email_errors", 0) + 1
-            debug.setdefault("errors", []).append(f"order {thread_id}: {error}")
-            continue
-
-    for thread_id in email_thread_ids:
-        if thread_id in processed_order_threads:
-            continue
-        try:
-            thread = read_thread(service, thread_id)
-            debug["email_threads_read"] = debug.get("email_threads_read", 0) + 1
-            latest = latest_inbound_email_for_dashboard(thread, connected_email)
-            subject = latest.get("subject", "")
-            sender = latest.get("from", "")
-
-            # Renewal form emails are automated but intentionally actionable. Process before old-date/automation filters.
-            if _is_eprepstation_renewal_request(thread):
-                renewal_item = _build_renewal_email_item(thread, connected_email)
-                if renewal_item:
-                    _upsert_email_in_catalog(catalog, renewal_item["thread_id"], renewal_item)
-                    renewal_added += 1
-                    suggested_replies += 1
-                    debug["email_deterministic_accepted"] = debug.get("email_deterministic_accepted", 0) + 1
-                    if len(debug.setdefault("first_accepted_examples", [])) < 8:
-                        debug["first_accepted_examples"].append({"subject": subject, "from": sender, "category": "work", "reason": renewal_item.get("important_reason", "")})
-                    continue
-
-            if not _thread_newer_than_catalog(thread):
-                debug["email_skipped_old_date"] = debug.get("email_skipped_old_date", 0) + 1
-                continue
-            if not _thread_is_on_or_after_scan_start(thread, connected_email):
-                debug["email_skipped_old_date"] = debug.get("email_skipped_old_date", 0) + 1
-                continue
-            if get_best_order_email_text(thread):
-                debug["email_skipped_order_notification"] = debug.get("email_skipped_order_notification", 0) + 1
-                continue
-            if latest_email_is_from_connected_account(thread, connected_email):
-                debug["email_skipped_latest_from_us"] = debug.get("email_skipped_latest_from_us", 0) + 1
-                continue
-            if is_obvious_automated_email(thread, connected_email) or _looks_like_fyi_only_notice(thread, connected_email):
-                debug["email_skipped_automation"] = debug.get("email_skipped_automation", 0) + 1
-                if len(debug.setdefault("first_rejected_examples", [])) < 8:
-                    debug["first_rejected_examples"].append({"subject": subject, "from": sender, "reason": "automation/fyi"})
-                continue
-            if not should_consider_thread_for_dashboard(thread, connected_email):
-                debug["email_skipped_prescreen"] = debug.get("email_skipped_prescreen", 0) + 1
-                if len(debug.setdefault("first_rejected_examples", [])) < 8:
-                    debug["first_rejected_examples"].append({"subject": subject, "from": sender, "reason": "prescreen"})
-                continue
-
-            item = build_general_email_item(service, thread, connected_email, personal_label_id, work_label_id)
-            ai_screenings_used += 1
-
-            if item:
-                _upsert_email_in_catalog(catalog, thread_id, item)
-
-            if item and item.get("reply") and not item.get("filtered_out"):
-                suggested_replies += 1
-                debug["email_ai_accepted"] = debug.get("email_ai_accepted", 0) + 1
-                if len(debug.setdefault("first_accepted_examples", [])) < 8:
-                    debug["first_accepted_examples"].append({"subject": subject, "from": sender, "category": item.get("category"), "reason": item.get("important_reason", "")})
-            else:
-                debug["email_ai_rejected"] = debug.get("email_ai_rejected", 0) + 1
-                if len(debug.setdefault("first_rejected_examples", [])) < 8:
-                    debug["first_rejected_examples"].append({"subject": subject, "from": sender, "reason": "ai rejected or no contextual reply"})
-        except GmailAuthRequired:
-            raise
-        except Exception as error:
-            debug["email_errors"] = debug.get("email_errors", 0) + 1
-            debug.setdefault("errors", []).append(f"email {thread_id}: {error}")
-            continue
-
-    now = datetime.now().isoformat(timespec="seconds")
-    catalog["meta"] = {
-        **catalog.get("meta", {}),
-        "connected_email": connected_email,
-        "last_successful_scan_at": now,
-        "last_incremental_newer_than": debug.get("incremental_newer_than", ""),
-        "last_full_scan_at": now if force_full else catalog.get("meta", {}).get("last_full_scan_at", ""),
-        "scan_start_date": SCAN_START_DT.strftime("%Y-%m-%d"),
-        "email_screening_version": EMAIL_SCREENING_VERSION,
-        "renewal_request_version": RENEWAL_REQUEST_VERSION,
-        "scan_window": f"{SCAN_START_DISPLAY} onward",
+            seen.add(key)
+        cleaned_emails.append(item)
+    payload["emails"] = cleaned_emails
+    payload["pending_replies"] = [item["thread_id"] for item in cleaned_emails if item.get("reply")] + [item["thread_id"] for item in payload.get("orders", []) if item.get("reply")]
+    payload["stats"] = {
+        **payload.get("stats", {}),
+        "pending_replies": len(payload["pending_replies"]),
+        "work_emails": len([email for email in cleaned_emails if email.get("category") == "work"]),
+        "personal_emails": len([email for email in cleaned_emails if email.get("category") == "personal"]),
     }
-    save_dashboard_catalog(catalog)
-    invalidate_dashboard_cache()
-
-    payload = build_dashboard_payload(force_refresh=True)
-    orders = payload.get("orders", [])
-    emails = payload.get("emails", [])
-    payload["briefing"] = build_daily_briefing(connected_email, orders, emails)
-    visible_suggested_replies = len([email for email in emails if email.get("reply")])
-    debug["renewal_added"] = renewal_added
-    debug["visible_orders_after_scan"] = len(orders)
-    debug["visible_emails_after_scan"] = len(emails)
-    if "_save_scan_debug" in globals():
-        _save_scan_debug(debug)
-
-    payload["scan_summary"] = {
-        "scan_window": f"{SCAN_START_DISPLAY} onward",
-        "scan_start": scan_start_used,
-        "incremental_newer_than": debug.get("incremental_newer_than", ""),
-        "full_scan": bool(force_full),
-        "orders_total": len(orders),
-        "orders_replied": len([order for order in orders if not order.get("reply")]),
-        "auto_orders_sent": auto_orders_sent,
-        "order_replies_waiting": order_replies_waiting,
-        "failed_orders_skipped": skipped_failed_orders,
-        "suggested_replies": visible_suggested_replies,
-        "emails_checked": len(email_thread_ids),
-        "email_threads_read": debug.get("email_threads_read", 0),
-        "emails_accepted": debug.get("email_ai_accepted", 0) + debug.get("email_deterministic_accepted", 0),
-        "emails_rejected": debug.get("email_skipped_order_notification", 0) + debug.get("email_skipped_old_date", 0) + debug.get("email_skipped_latest_from_us", 0) + debug.get("email_skipped_automation", 0) + debug.get("email_skipped_prescreen", 0) + debug.get("email_ai_rejected", 0),
-        "renewal_added": renewal_added,
-        "ai_screenings_used": ai_screenings_used,
-        "debug_file": str(SCAN_DEBUG_FILE) if "SCAN_DEBUG_FILE" in globals() else "",
-    }
-    print(f"[scan] complete | full={force_full} | read={debug.get('email_threads_read',0)} | accepted={payload['scan_summary']['emails_accepted']} | renewal_added={renewal_added} | suggested={visible_suggested_replies} | rejected={payload['scan_summary']['emails_rejected']}", flush=True)
+    payload["briefing"] = build_daily_briefing(payload.get("connected_email", DEFAULT_CONNECTED_EMAIL), payload.get("orders", []), cleaned_emails)
     return payload
 
 
-_previous_api_scan_for_fullscan = app.view_functions.get("api_scan")
-def api_scan():
+_previous_perform_gmail_scan_for_renewal = perform_gmail_scan
+def perform_gmail_scan(force_full: bool = False) -> Dict:
+    payload = _previous_perform_gmail_scan_for_renewal(force_full=force_full)
     try:
-        request_body = request.get_json(silent=True) or {}
-        payload = perform_gmail_scan(force_full=bool(request_body.get("force_full", False)))
-        summary = payload.get("scan_summary", {})
-        return jsonify({
-            "ok": True,
-            "message": "Full scan complete." if summary.get("full_scan") else "Refresh complete.",
-            "full_scan": bool(summary.get("full_scan", False)),
-            "order_replies_waiting": summary.get("order_replies_waiting", len([order for order in payload.get("orders", []) if order.get("reply")])) ,
-            "failed_orders_skipped": summary.get("failed_orders_skipped", len([order for order in payload.get("orders", []) if order.get("order_number") == "Unknown"])),
-            "suggested_replies": summary.get("suggested_replies", len([email for email in payload.get("emails", []) if email.get("reply")])),
-            "auto_orders_sent": summary.get("auto_orders_sent", 0),
-            "emails_checked": summary.get("emails_checked", 0),
-            "email_threads_read": summary.get("email_threads_read", 0),
-            "emails_accepted": summary.get("emails_accepted", 0),
-            "emails_rejected": summary.get("emails_rejected", 0),
-            "renewal_added": summary.get("renewal_added", 0),
-            "ai_screenings_used": summary.get("ai_screenings_used", 0),
-            "debug_file": summary.get("debug_file", ""),
-            "scan_start": summary.get("scan_start", ""),
-            "incremental_newer_than": summary.get("incremental_newer_than", ""),
-            "scan_window": summary.get("scan_window", f"{SCAN_START_DISPLAY} onward"),
-        })
+        service = get_gmail_service()
+        connected_email = get_connected_email(service)
+        catalog = get_dashboard_catalog()
+        added = _scan_and_upsert_renewal_requests(service, catalog, connected_email)
+        invalidate_dashboard_cache()
+        payload = build_dashboard_payload(force_refresh=True)
+        summary = payload.setdefault("scan_summary", {})
+        summary["renewal_added"] = added
     except GmailAuthRequired:
-        return _json_gmail_auth_required()
+        raise
     except Exception as error:
-        return jsonify({"ok": False, "error": str(error)}), 500
-app.view_functions["api_scan"] = api_scan
+        print(f"[renewal-minimal] skipped due to error: {error}", flush=True)
+    return payload
 
 
+# Override send only for renewal items, because they are synthetic dashboard items and should send a new email to the student.
 _previous_api_send_reply_for_renewal = app.view_functions.get("api_send_reply")
 def api_send_reply(thread_id: str):
     try:
-        catalog_item = get_catalog_item("emails", thread_id)
-        reply = catalog_item.get("reply") if isinstance(catalog_item, dict) else None
-        if catalog_item.get("renewal_request") and reply and reply.get("mode") == "new_email":
+        item = get_catalog_item("emails", thread_id)
+        details = _item_renewal_details(item)
+        if details and item.get("reply"):
             if not get_automation_settings().get("auto_reply_enabled", True):
                 return jsonify({"ok": False, "error": "Auto Reply is off. Turn it on before sending replies."}), 403
             service = get_gmail_service()
-            to_email = (reply.get("to") or "").strip()
-            subject = (request.get_json(silent=True) or {}).get("subject") or reply.get("subject") or "Account renewal request"
-            body = (request.get_json(silent=True) or {}).get("body") or reply.get("body") or ""
-            if not to_email or not body.strip():
-                raise ValueError("Renewal suggestion is missing recipient or body.")
-            sent = send_new_email(service, to_email, subject.strip(), body.strip())
+            body = request.get_json(silent=True) or {}
+            reply = item.get("reply", {})
+            subject = (body.get("subject") or reply.get("subject") or f"Account renewal request - {details['course']}").strip()
+            reply_body = (body.get("body") or reply.get("body") or _renewal_reply_body(details["student_name"], details["course"])).strip()
+            sent = send_new_email(service, details["student_email"], subject, reply_body)
             upsert_catalog_item("emails", thread_id, {
+                **item,
                 "status": "Already Replied",
                 "reply": None,
                 "reply_sent_at": datetime.now().isoformat(timespec="seconds"),
             })
-            mark_thread_action_processed(thread_id, "frontend_reply_sent", sent.get("id", ""), renewal_request=True)
             invalidate_dashboard_cache()
             return jsonify({"ok": True, "message": "Email sent successfully.", "sent": sent})
         return _previous_api_send_reply_for_renewal(thread_id)
@@ -4505,53 +4437,6 @@ def api_send_reply(thread_id: str):
         return jsonify({"ok": False, "error": str(error)}), 500
 app.view_functions["api_send_reply"] = api_send_reply
 
-
-# ---------------------------------------------------------------------
-# FINAL PATCH: renewal requests must remain visible + full-scan recovery helper
-# ---------------------------------------------------------------------
-# The previous full-scan version correctly found renewal candidate emails and inserted
-# them into the catalog, but the dashboard visibility filter could hide them because
-# their source email is an automated/no-reply EprepStation form. These final overrides
-# keep normal filtering intact while making renewal request cards visible.
-
-def _catalog_item_looks_unimportant(item: Dict) -> bool:
-    if item.get("renewal_request"):
-        return False
-    text = _catalog_text(item)
-    bad_terms = [
-        "order has shipped", "has shipped", "has been shipped", "on the way", "out for delivery",
-        "delivered", "e-transfer received", "etransfer received", "interac e-transfer",
-        "payment received", "receipt for your payment", "charge receipt", "invoice paid",
-        "tracking number", "shipment", "unsubscribe", "promotion", "newsletter",
-        "please moderate", "comment awaiting moderation", "new question submitted",
-        "security alert", "verification code", "password reset", "mail delivery", "undeliverable",
-        "do not reply", "no-reply", "noreply",
-    ]
-    return any(term in text for term in bad_terms)
-
-
-def _is_catalog_email_visible(item: Dict) -> bool:
-    if not _item_is_on_or_after_scan_start(item):
-        return False
-    if item.get("filtered_out") or item.get("status") == "Filtered Out":
-        return False
-    if item.get("renewal_request"):
-        return item.get("category") == "work" and (bool(item.get("reply")) or item.get("status") in ("Needs Reply", "Already Replied", "Suggestion Removed"))
-    if _catalog_item_looks_unimportant(item):
-        return False
-    if item.get("category") not in ("work", "personal"):
-        return False
-    if item.get("screening_version") != EMAIL_SCREENING_VERSION:
-        return False
-    reason = item.get("important_reason", "")
-    has_specific_reason = bool(reason) and not summary_is_generic(reason)
-    has_reply = bool(item.get("reply"))
-    handled = item.get("status") in ("Already Replied", "Suggestion Removed") and has_specific_reason
-    if has_reply and not item.get("ai_screened"):
-        return False
-    if item.get("ai_screened") and not has_reply and not handled and not has_specific_reason:
-        return False
-    return has_reply or handled or (has_specific_reason and item.get("ai_screened"))
 
 if __name__ == "__main__":
     print("\nPharmacy Prep Gmail Assistant is starting...")
