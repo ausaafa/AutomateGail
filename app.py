@@ -4040,6 +4040,260 @@ def api_remove_reply(thread_id: str):
 app.view_functions["api_remove_reply"] = api_remove_reply
 
 
+# ---------------------------------------------------------------------
+# FINAL PATCH: EprepStation account renewal request support
+# ---------------------------------------------------------------------
+# Include exact renewal notifications as actionable work items. These are separate
+# from paid/amount-based renewal/order messages and should generate a new email to
+# the student/customer email inside the notification.
+RENEWAL_REQUEST_SCREENING_VERSION = "2026-06-renewal-requests-v10"
+try:
+    EMAIL_SCREENING_VERSION = RENEWAL_REQUEST_SCREENING_VERSION
+except Exception:
+    pass
+
+_RENEWAL_EXACT_SUBJECT = "account renewal request received from eprepstation.com"
+
+
+def _renewal_latest_text(thread: Dict, connected_email: str = "") -> Tuple[Dict, str, str, str]:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    subject = latest.get("subject", "") or ""
+    body = clean_preview_text(latest.get("body", ""), 12000)
+    text = f"{subject}\n{body}"
+    return latest, subject, body, text
+
+
+def is_eprepstation_account_renewal_request(thread: Dict, connected_email: str = "") -> bool:
+    latest, subject, body, text = _renewal_latest_text(thread, connected_email)
+    subject_l = subject.lower().strip()
+    text_l = text.lower()
+    # User requested the EprepStation notification specifically, not the separate
+    # $214 renewal/payment/order email type.
+    if "214$" in subject_l or "$214" in subject_l or "214.00" in subject_l:
+        return False
+    return _RENEWAL_EXACT_SUBJECT in subject_l or (
+        "account renewal request received" in subject_l and "eprepstation" in text_l
+    )
+
+
+def _line_after_label(text: str, labels: List[str]) -> str:
+    for label in labels:
+        pattern = rf"(?im)^\s*{re.escape(label)}\s*[:\-]\s*(.+?)\s*$"
+        match = re.search(pattern, text)
+        if match:
+            value = match.group(1).strip()
+            if value:
+                return value
+    return ""
+
+
+def extract_renewal_request_details(thread: Dict, connected_email: str = "") -> Dict:
+    latest, subject, body, text = _renewal_latest_text(thread, connected_email)
+    customer_email = extract_customer_email(text, connected_email) or ""
+
+    name = _line_after_label(text, [
+        "Name", "Full Name", "Customer Name", "Student Name", "Account Name", "User Name", "User"
+    ])
+    if not name:
+        # Sometimes the body says something like "Account renewal request from John Smith".
+        match = re.search(r"(?i)renewal request\s+(?:received\s+)?from\s+([^\n<]+)", text)
+        if match:
+            name = re.sub(r"\s+", " ", match.group(1)).strip(" :-")
+    if not name:
+        name = infer_customer_name_from_email(customer_email) or "Customer"
+    name = re.sub(r"[<>\[\]\{\}\"]", "", name).strip()
+    if not name or name.lower() in ("account renewal request received from eprepstation.com", "customer"):
+        name = infer_customer_name_from_email(customer_email) or "Customer"
+
+    course = _line_after_label(text, [
+        "Course", "Course Name", "Program", "Product", "Membership", "Plan", "Package", "Account", "Requested Course"
+    ])
+    if not course:
+        course_line_candidates = []
+        for raw_line in text.splitlines():
+            line = re.sub(r"\s+", " ", raw_line).strip(" -:\t")
+            lowered = line.lower()
+            if not line or len(line) > 160:
+                continue
+            if any(token in lowered for token in ["pebc", "osce", "mcq", "evaluating", "qualifying", "course", "prep", "naplex"]):
+                if "account renewal request" not in lowered and "eprepstation" not in lowered:
+                    course_line_candidates.append(line)
+        if course_line_candidates:
+            course = course_line_candidates[0]
+    course = re.sub(r"\s+", " ", course or "your course").strip()
+
+    return {
+        "name": name,
+        "email": customer_email,
+        "course": course,
+        "subject": subject,
+        "body": body,
+        "latest": latest,
+    }
+
+
+def build_renewal_request_reply(details: Dict) -> Tuple[str, str]:
+    name = details.get("name") or "Customer"
+    course = details.get("course") or "your course"
+    subject = f"Re: Account renewal request for {course}"
+    body = f"""Dear {name},
+
+Thank you for submitting your account renewal request for {course}.
+
+We have received your request and will review your account details. Once confirmed, we will update your course access and send you a confirmation by email.
+
+Regards
+Pharmacy Prep
+Phone: 416-223-PREP (7737)
+WhatsApp: 647-221-0457
+www.pharmacyprep.com"""
+    return subject, body
+
+
+def build_renewal_request_item(service, thread: Dict, connected_email: str) -> Optional[Dict]:
+    if not is_eprepstation_account_renewal_request(thread, connected_email):
+        return None
+    if not _thread_is_on_or_after_scan_start(thread, connected_email):
+        return None
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    thread_id = thread.get("thread_id", "")
+    details = extract_renewal_request_details(thread, connected_email)
+    customer_email = details.get("email", "")
+    customer_name = details.get("name", "Customer")
+    course = details.get("course", "your course")
+    title = f"Account renewal request from {customer_name}"
+    important_reason = f"{customer_name} submitted an EprepStation account renewal request for {course}; a course-specific renewal reply is ready for review."
+    reply = None
+    if customer_email:
+        subject, body = build_renewal_request_reply(details)
+        reply = {
+            "thread_id": thread_id,
+            "mode": "new_email",
+            "to": customer_email,
+            "subject": subject,
+            "body": body,
+        }
+    return {
+        "thread_id": thread_id,
+        "category": "work",
+        "title": title,
+        "important_reason": important_reason,
+        "status": "Needs Reply" if reply else "Filtered Out",
+        "filtered_out": False if reply else True,
+        "reply_sent_at": "",
+        "latest_inbound_id": latest_inbound_message_id(thread, connected_email),
+        "sort_ts": latest_inbound_sort_key(thread, connected_email),
+        "ai_screened": True,
+        "screen_confidence": 1.0,
+        "screening_version": EMAIL_SCREENING_VERSION,
+        "renewal_request": True,
+        "renewal_customer_email": customer_email,
+        "renewal_customer_name": customer_name,
+        "renewal_course": course,
+        "original": {
+            "from": latest.get("from", ""),
+            "to": latest.get("to", ""),
+            "date": latest.get("date", ""),
+            "subject": latest.get("subject", ""),
+            "body": clean_preview_text(latest.get("body", ""), 1800),
+        },
+        "reply": reply,
+    }
+
+
+_previous_automation_or_noise_reason_for_renewal = _automation_or_noise_reason
+def _automation_or_noise_reason(thread: Dict, connected_email: str) -> str:
+    if is_eprepstation_account_renewal_request(thread, connected_email):
+        return ""
+    return _previous_automation_or_noise_reason_for_renewal(thread, connected_email)
+
+
+_previous_should_consider_thread_for_dashboard_for_renewal = should_consider_thread_for_dashboard
+def should_consider_thread_for_dashboard(thread: Dict, connected_email: str) -> bool:
+    if is_eprepstation_account_renewal_request(thread, connected_email):
+        return True
+    return _previous_should_consider_thread_for_dashboard_for_renewal(thread, connected_email)
+
+
+_previous_email_scan_queries_for_renewal = _email_scan_queries
+def _email_scan_queries(date_clause: str, connected_email: str) -> List[str]:
+    queries = [
+        f'{date_clause} "Account Renewal Request Received from EprepStation.com"',
+        f'{date_clause} "Account Renewal Request Received" "EprepStation.com"',
+    ]
+    for query in _previous_email_scan_queries_for_renewal(date_clause, connected_email):
+        if query not in queries:
+            queries.append(query)
+    return queries
+
+
+_previous_build_general_email_item_for_renewal = build_general_email_item
+def build_general_email_item(service, thread: Dict, connected_email: str, personal_label_id: str, work_label_id: str) -> Optional[Dict]:
+    renewal_item = build_renewal_request_item(service, thread, connected_email)
+    if renewal_item:
+        try:
+            apply_label_to_thread_messages(service, thread, work_label_id)
+        except Exception:
+            pass
+        return renewal_item
+    return _previous_build_general_email_item_for_renewal(service, thread, connected_email, personal_label_id, work_label_id)
+
+
+_previous_api_send_reply_for_renewal = app.view_functions.get("api_send_reply")
+def api_send_reply(thread_id: str):
+    try:
+        if not get_automation_settings().get("auto_reply_enabled", True):
+            return jsonify({"ok": False, "error": "Auto Reply is off. Turn it on before sending replies."}), 403
+        service = get_gmail_service()
+        connected_email = get_connected_email(service)
+        body_payload = request.get_json(silent=True) or {}
+        subject = (body_payload.get("subject") or "").strip()
+        reply_body = (body_payload.get("body") or "").strip()
+        thread = read_thread(service, thread_id)
+
+        if is_eprepstation_account_renewal_request(thread, connected_email):
+            item = get_catalog_item("emails", thread_id) or build_renewal_request_item(service, thread, connected_email) or {}
+            reply = item.get("reply") or {}
+            to_email = (reply.get("to") or extract_renewal_request_details(thread, connected_email).get("email") or "").strip()
+            if not to_email:
+                raise ValueError("Could not find the renewal request customer email address.")
+            if not subject:
+                subject = reply.get("subject") or "Re: Account renewal request"
+            if not reply_body:
+                reply_body = reply.get("body") or build_renewal_request_reply(extract_renewal_request_details(thread, connected_email))[1]
+            sent = send_new_email(service, to_email, subject, reply_body)
+            upsert_catalog_item("emails", thread_id, {
+                "status": "Already Replied",
+                "reply": None,
+                "reply_sent_at": datetime.now().isoformat(timespec="seconds"),
+                "renewal_request": True,
+            })
+            mark_thread_action_processed(thread_action_key(thread, connected_email), "frontend_reply_sent", sent.get("id", ""), renewal_request=True)
+            invalidate_dashboard_cache()
+            return jsonify({"ok": True, "message": "Renewal reply sent successfully.", "sent": sent})
+
+        return _previous_api_send_reply_for_renewal(thread_id)
+    except GmailAuthRequired:
+        return _json_gmail_auth_required()
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
+
+app.view_functions["api_send_reply"] = api_send_reply
+
+
+
+_previous_perform_gmail_scan_for_renewal = perform_gmail_scan
+def perform_gmail_scan(force_full: bool = False) -> Dict:
+    catalog = get_dashboard_catalog()
+    meta = catalog.get("meta", {}) if isinstance(catalog, dict) else {}
+    # Force one June-forward re-screen after this update so existing renewal
+    # notifications already in Gmail can be picked up once. Future refreshes stay incremental.
+    if meta.get("email_screening_version") != EMAIL_SCREENING_VERSION:
+        force_full = True
+    return _previous_perform_gmail_scan_for_renewal(force_full=force_full)
+
+
+
 if __name__ == "__main__":
     print("\nPharmacy Prep Gmail Assistant is starting...")
     print("Open this link in your browser:")
