@@ -3598,8 +3598,8 @@ def dashboard_category_for_thread(thread: Dict, connected_email: str) -> str:
 # ---------------------------------------------------------------------
 # FINAL PATCH: app login, browser Gmail re-auth, and true incremental refresh
 # ---------------------------------------------------------------------
-APP_LOGIN_USERNAME = os.getenv("APP_LOGIN_USERNAME", "success@pharmacyprep.com")
-APP_LOGIN_PASSWORD = os.getenv("APP_LOGIN_PASSWORD", "Pharmacy1966")
+APP_LOGIN_USERNAME = os.getenv("APP_LOGIN_USERNAME", "")
+APP_LOGIN_PASSWORD = os.getenv("APP_LOGIN_PASSWORD", "")
 GMAIL_TOKEN_FILE = BASE_DIR / "token.json"
 GMAIL_CREDENTIALS_FILE = BASE_DIR / "credentials.json"
 
