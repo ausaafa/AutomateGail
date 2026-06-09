@@ -956,6 +956,10 @@
             <div class="modal-to" id="modalTo"></div>
             <div class="modal-label">Subject</div>
             <input class="modal-input" id="modalSubject" />
+            <div class="modal-label">Choose a template</div>
+            <select class="modal-input" id="modalTemplateSelect" onchange="applySelectedTemplate()">
+              <option value="">Choose a template</option>
+            </select>
             <div class="modal-label">Reply</div>
             <textarea class="modal-textarea" id="modalBody"></textarea>
           </div>
@@ -990,6 +994,9 @@
         last_auto_scan_at: ""
       },
       currentModalThreadId: "",
+      gmailTemplates: [],
+      gmailTemplatesLoaded: false,
+      gmailTemplatesLoading: false,
       isScanning: false,
       pageLoaded: false,
       gmailAuthUrl: "",
@@ -1261,6 +1268,61 @@
       return null;
     }
 
+
+    function resetTemplateSelect(message = "Choose a template") {
+      const select = document.getElementById("modalTemplateSelect");
+      if (!select) return;
+      select.innerHTML = `<option value="">${escapeHtml(message)}</option>`;
+      select.value = "";
+    }
+
+    function populateTemplateSelect() {
+      const select = document.getElementById("modalTemplateSelect");
+      if (!select) return;
+      const templates = Array.isArray(state.gmailTemplates) ? state.gmailTemplates : [];
+      if (!templates.length) {
+        select.innerHTML = `<option value="">No Gmail templates found</option>`;
+        return;
+      }
+      const options = [`<option value="">Choose a template</option>`].concat(
+        templates.map(template => {
+          const label = template.name || template.subject || "Untitled template";
+          return `<option value="${escapeHtml(template.id)}">${escapeHtml(label)}</option>`;
+        })
+      );
+      select.innerHTML = options.join("");
+    }
+
+    async function loadGmailTemplates() {
+      if (state.gmailTemplatesLoaded || state.gmailTemplatesLoading) {
+        populateTemplateSelect();
+        return;
+      }
+      state.gmailTemplatesLoading = true;
+      resetTemplateSelect("Loading templates...");
+      try {
+        const data = await api("/api/gmail-templates");
+        state.gmailTemplates = Array.isArray(data.templates) ? data.templates : [];
+        state.gmailTemplatesLoaded = true;
+        populateTemplateSelect();
+      } catch (error) {
+        resetTemplateSelect("Could not load templates");
+        showToast(error.message || "Could not load Gmail templates.");
+      } finally {
+        state.gmailTemplatesLoading = false;
+      }
+    }
+
+    function applySelectedTemplate() {
+      const select = document.getElementById("modalTemplateSelect");
+      if (!select || !select.value) return;
+      const template = (state.gmailTemplates || []).find(item => String(item.id) === String(select.value));
+      if (!template) return;
+      if (template.subject) document.getElementById("modalSubject").value = template.subject;
+      if (template.body) document.getElementById("modalBody").value = template.body;
+      document.getElementById("modalBody").focus();
+    }
+
     function openReplyModal(threadId) {
       const context = findReplyContext(threadId);
       if (!context || !context.reply) {
@@ -1280,6 +1342,8 @@
       document.getElementById("modalTo").textContent = reply.to || "Sender";
       document.getElementById("modalSubject").value = reply.subject || "Reply";
       document.getElementById("modalBody").value = reply.body || "";
+      resetTemplateSelect("Choose a template");
+      loadGmailTemplates();
 
       document.getElementById("modalSendBtn").onclick = () => sendSuggestedReply(threadId);
       document.getElementById("replyModal").classList.add("open");
