@@ -182,33 +182,6 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .refresh-btn {
-      position: relative;
-      min-width: 124px;
-      height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .button-spinner {
-      display: none;
-      width: 18px;
-      height: 18px;
-      border: 3px solid rgba(5, 5, 5, .18);
-      border-top-color: #050505;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-    }
-
-    .refresh-btn.loading {
-      opacity: .85;
-      pointer-events: none;
-    }
-
-    .refresh-btn.loading .refresh-btn-text { display: none; }
-    .refresh-btn.loading .button-spinner { display: inline-block; }
-
     .workspace {
       width: 100%;
       display: grid;
@@ -623,37 +596,6 @@
     }
 
 
-    .auth-banner {
-      position: fixed;
-      left: 50%;
-      top: 18px;
-      transform: translateX(-50%);
-      width: min(520px, calc(100vw - 28px));
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      background: #ffffff;
-      color: #050505;
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      border-radius: 6px;
-      padding: 13px 14px;
-      z-index: 140;
-      font-weight: 850;
-      line-height: 1.35;
-    }
-
-    .auth-banner.open { display: flex; }
-
-    .auth-banner button {
-      min-width: 132px;
-      background: #050505;
-      color: white;
-      border: 1px solid #050505;
-    }
-
-
 
     .modal-backdrop {
       position: fixed;
@@ -796,6 +738,37 @@
       line-height: 1.65;
     }
 
+
+    .template-select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 13px;
+      font: inherit;
+      font-size: 16px;
+      outline: none;
+      background: white;
+      min-height: 48px;
+      font-weight: 800;
+    }
+
+    .template-select:focus {
+      border-color: var(--black);
+      box-shadow: 0 0 0 3px rgba(5, 5, 5, .10);
+    }
+
+    .favorite-btn {
+      background: white;
+      color: #050505;
+      border: 1px solid var(--black);
+      min-width: 96px;
+    }
+
+    .favorite-btn.active {
+      background: #050505;
+      color: white;
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -875,14 +848,8 @@
 
       <div class="actions">
         <button class="kill-switch" onclick="toggleAutoReply()" id="killSwitchBtn">Auto Reply: On</button>
-        <button class="secondary refresh-btn loading" onclick="refreshNow()" id="refreshBtn" type="button" aria-live="polite" aria-busy="true" disabled>
-          <span class="refresh-btn-text">Refresh</span>
-          <span class="button-spinner" aria-hidden="true"></span>
-        </button>
-        <button class="secondary refresh-btn" onclick="fullScanNow()" id="fullScanBtn" type="button" aria-live="polite" aria-busy="false" disabled title="Full scan checks every Gmail thread from June 2026 onward, then Refresh goes back to incremental checking.">
-          <span class="refresh-btn-text">Full Scan</span>
-          <span class="button-spinner" aria-hidden="true"></span>
-        </button>
+        <button class="primary" onclick="scanGmail()" id="scanBtn">Scan Gmail</button>
+        <button class="secondary" onclick="refreshNow()">Refresh</button>
       </div>
     </header>
 
@@ -957,7 +924,7 @@
             <div class="modal-label">Subject</div>
             <input class="modal-input" id="modalSubject" />
             <div class="modal-label">Choose a template</div>
-            <select class="modal-input" id="modalTemplateSelect" onchange="applySelectedTemplate()">
+            <select class="template-select" id="modalTemplateSelect" onchange="applySelectedTemplate()">
               <option value="">Choose a template</option>
             </select>
             <div class="modal-label">Reply</div>
@@ -967,14 +934,10 @@
       </div>
 
       <div class="modal-actions">
+        <button class="danger" type="button" id="modalRemoveBtn">Remove Suggestion</button>
         <button class="success" type="button" id="modalSendBtn">Send Email</button>
       </div>
     </div>
-  </div>
-
-  <div class="auth-banner" id="gmailAuthBanner">
-    <span id="gmailAuthMessage">Please sign in again.</span>
-    <button type="button" id="gmailAuthBtn">Sign in again</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -994,31 +957,13 @@
         last_auto_scan_at: ""
       },
       currentModalThreadId: "",
-      gmailTemplates: [],
-      gmailTemplatesLoaded: false,
-      gmailTemplatesLoading: false,
+      templates: [],
+      templatesLoaded: false,
       isScanning: false,
-      pageLoaded: false,
-      gmailAuthUrl: "",
       autoScanTimer: null,
       dashboardTimer: null,
       hasInitialAutoScan: false
     };
-
-    function showGmailAuthBanner(message, authUrl) {
-      const banner = document.getElementById("gmailAuthBanner");
-      const messageEl = document.getElementById("gmailAuthMessage");
-      const btn = document.getElementById("gmailAuthBtn");
-      state.gmailAuthUrl = authUrl || "/auth/gmail";
-      messageEl.textContent = message || "Please sign in again.";
-      btn.onclick = () => { window.location.href = state.gmailAuthUrl; };
-      banner.classList.add("open");
-    }
-
-    function hideGmailAuthBanner() {
-      const banner = document.getElementById("gmailAuthBanner");
-      if (banner) banner.classList.remove("open");
-    }
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -1026,24 +971,8 @@
         ...options
       });
 
-      let data = {};
-      try {
-        data = await response.json();
-      } catch (_) {
-        data = {};
-      }
-
-      if ((response.status === 401 || response.status === 403) && data && data.auth_required) {
-        if (data.auth_type === "gmail") {
-          showGmailAuthBanner(data.error || "Please sign in again.", data.auth_url || "/auth/gmail");
-        } else if (data.login_url) {
-          window.location.href = data.login_url;
-        }
-        throw new Error(data.error || "Please sign in again.");
-      }
-
+      const data = await response.json();
       if (!response.ok || data.ok === false) throw new Error(data.error || "Request failed");
-      hideGmailAuthBanner();
       return data;
     }
 
@@ -1054,28 +983,15 @@
       setTimeout(() => { toast.style.display = "none"; }, 5200);
     }
 
-    function setRefreshButtonLoading(isLoading, targetButtonId = "refreshBtn") {
-      const refreshBtn = document.getElementById("refreshBtn");
-      const fullScanBtn = document.getElementById("fullScanBtn");
-      const buttons = [refreshBtn, fullScanBtn].filter(Boolean);
-      const locked = isLoading || !state.pageLoaded;
-      buttons.forEach(button => {
-        button.disabled = locked;
-        const isTarget = button.id === targetButtonId;
-        button.classList.toggle("loading", isLoading && isTarget);
-        button.setAttribute("aria-busy", isLoading && isTarget ? "true" : "false");
-      });
-    }
-
-    function setLoading(isLoading, text = "Working...", showRefreshSpinner = false, targetButtonId = "refreshBtn") {
+    function setLoading(isLoading, text = "Working...") {
       document.getElementById("loadingBox").style.display = isLoading ? "flex" : "none";
+      document.getElementById("scanBtn").disabled = isLoading;
       document.getElementById("statusText").textContent = isLoading ? text : "Ready";
-      if (showRefreshSpinner) setRefreshButtonLoading(isLoading, targetButtonId);
     }
 
-    async function loadDashboard(options = {}) {
+    async function loadDashboard() {
       try {
-        if (options.showRefreshSpinner) setLoading(true, "Loading dashboard...", true);
+        setLoading(true, "Refreshing dashboard...");
         const data = await api("/api/dashboard");
 
         document.getElementById("connectedEmail").textContent = data.connected_email || "Connected Gmail";
@@ -1093,10 +1009,11 @@
         syncKillSwitchButton();
         startAutoRefreshLoops();
         renderSection();
+        triggerInitialAutoScan();
       } catch (error) {
-        if (!options.silent) showToast(error.message);
+        showToast(error.message);
       } finally {
-        if (options.showRefreshSpinner) setLoading(false, "Ready", true);
+        setLoading(false);
       }
     }
 
@@ -1140,12 +1057,12 @@
     }
 
     function renderOrders() {
-      setHeader("Orders", "", "Orders stay visible here and are sorted with the newest at the top. New order welcomes are sent automatically when safe; anything that needs review still shows a Reply button, and already handled orders remain visible.");
+      setHeader("Orders", "", "Orders stay visible here and are sorted with the newest at the top. New customer welcomes show a Reply button; already handled orders remain visible so you can confirm they were covered.");
       const list = document.getElementById("mainList");
       const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
 
       if (!orders.length) {
-        list.innerHTML = `<div class="empty">No orders from June 2026 onward were found yet. Click <strong>Refresh</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Scan Gmail</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1181,8 +1098,8 @@
       const title = category === "work" ? "Work Email" : "Personal Email";
       const badge = "";
       const note = category === "work"
-        ? "Only important, reply-worthy work emails from June 2026 onward are shown here, and they stay sorted with the newest at the top."
-        : "Only important, reply-worthy personal emails from June 2026 onward are shown here, and they stay sorted with the newest at the top.";
+        ? "Only important, reply-worthy work emails are shown here, and they stay sorted with the newest at the top."
+        : "Only important, reply-worthy personal emails are shown here, and they stay sorted with the newest at the top.";
 
       setHeader(title, badge, note);
       const list = document.getElementById("mainList");
@@ -1192,7 +1109,7 @@
       );
 
       if (!emails.length) {
-        list.innerHTML = `<div class="empty">No ${escapeHtml(category)} emails from June 2026 onward need a response right now. Click <strong>Refresh</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No ${escapeHtml(category)} emails need a response right now. Click <strong>Scan Gmail</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1229,6 +1146,7 @@
           ${reply ? `
             <div class="card-actions">
               <button class="success" onclick="sendSuggestedReply('${escapeForJs(reply.thread_id)}')">Send Email</button>
+              <button class="danger" onclick="removeSuggestedReply('${escapeForJs(reply.thread_id)}')">Remove Suggestion</button>
             </div>
           ` : ""}
         </article>
@@ -1269,61 +1187,40 @@
     }
 
 
-    function resetTemplateSelect(message = "Choose a template") {
-      const select = document.getElementById("modalTemplateSelect");
-      if (!select) return;
-      select.innerHTML = `<option value="">${escapeHtml(message)}</option>`;
-      select.value = "";
-    }
-
-    function populateTemplateSelect() {
-      const select = document.getElementById("modalTemplateSelect");
-      if (!select) return;
-      const templates = Array.isArray(state.gmailTemplates) ? state.gmailTemplates : [];
-      if (!templates.length) {
-        select.innerHTML = `<option value="">No Gmail templates found</option>`;
-        return;
-      }
-      const options = [`<option value="">Choose a template</option>`].concat(
-        templates.map(template => {
-          const label = template.name || template.subject || "Untitled template";
-          return `<option value="${escapeHtml(template.id)}">${escapeHtml(label)}</option>`;
-        })
-      );
-      select.innerHTML = options.join("");
-    }
-
-    async function loadGmailTemplates() {
-      if (state.gmailTemplatesLoaded || state.gmailTemplatesLoading) {
-        populateTemplateSelect();
-        return;
-      }
-      state.gmailTemplatesLoading = true;
-      resetTemplateSelect("Loading templates...");
+    async function loadTemplates() {
+      if (state.templatesLoaded) return state.templates;
       try {
         const data = await api("/api/gmail-templates");
-        state.gmailTemplates = Array.isArray(data.templates) ? data.templates : [];
-        state.gmailTemplatesLoaded = true;
-        populateTemplateSelect();
+        state.templates = Array.isArray(data.templates) ? data.templates : [];
+        state.templatesLoaded = true;
       } catch (error) {
-        resetTemplateSelect("Could not load templates");
-        showToast(error.message || "Could not load Gmail templates.");
-      } finally {
-        state.gmailTemplatesLoading = false;
+        state.templates = [];
+        state.templatesLoaded = true;
       }
+      return state.templates;
+    }
+
+    function populateTemplateDropdown() {
+      const select = document.getElementById("modalTemplateSelect");
+      if (!select) return;
+      const options = [`<option value="">Choose a template</option>`]
+        .concat((state.templates || []).map((template, index) => {
+          return `<option value="${index}">${escapeHtml(template.title || `Template ${index + 1}`)}</option>`;
+        }));
+      select.innerHTML = options.join("");
+      select.value = "";
     }
 
     function applySelectedTemplate() {
       const select = document.getElementById("modalTemplateSelect");
-      if (!select || !select.value) return;
-      const template = (state.gmailTemplates || []).find(item => String(item.id) === String(select.value));
+      if (!select || select.value === "") return;
+      const template = state.templates[Number(select.value)];
       if (!template) return;
-      if (template.subject) document.getElementById("modalSubject").value = template.subject;
-      if (template.body) document.getElementById("modalBody").value = template.body;
-      document.getElementById("modalBody").focus();
+      document.getElementById("modalSubject").value = template.title || document.getElementById("modalSubject").value || "Reply";
+      document.getElementById("modalBody").value = template.body || "";
     }
 
-    function openReplyModal(threadId) {
+    async function openReplyModal(threadId) {
       const context = findReplyContext(threadId);
       if (!context || !context.reply) {
         showToast("Could not open this reply. Refresh and try again.");
@@ -1342,10 +1239,11 @@
       document.getElementById("modalTo").textContent = reply.to || "Sender";
       document.getElementById("modalSubject").value = reply.subject || "Reply";
       document.getElementById("modalBody").value = reply.body || "";
-      resetTemplateSelect("Choose a template");
-      loadGmailTemplates();
+      populateTemplateDropdown();
+      loadTemplates().then(populateTemplateDropdown);
 
       document.getElementById("modalSendBtn").onclick = () => sendSuggestedReply(threadId);
+      document.getElementById("modalRemoveBtn").onclick = () => removeSuggestedReply(threadId);
       document.getElementById("replyModal").classList.add("open");
       document.getElementById("modalBody").focus();
     }
@@ -1365,11 +1263,10 @@
     }
 
     function renderSummary() {
-      setHeader("AI Summary", "June 2026 onward", "A clean overview of what the latest scan found from June 2026 onward.");
-      const hasBriefing = state.briefing && !/No (summary|briefing) yet/i.test(state.briefing);
-      const friendly = hasBriefing
-        ? state.briefing.replaceAll("# Daily Gmail Briefing", "AI Summary").replaceAll("# AI Summary", "AI Summary")
-        : "No summary yet. Click Refresh to check emails from June 2026 onward.";
+      setHeader("AI Summary", "Daily review", "A clean overview of what the latest scan found.");
+      const friendly = state.briefing && !state.briefing.includes("No summary yet")
+        ? state.briefing.replaceAll("# Daily Gmail Briefing", "Daily Gmail Briefing")
+        : "No summary yet. Click Scan Gmail to review recent emails.";
       document.getElementById("mainList").innerHTML = `<div class="briefing">${escapeHtml(friendly)}</div>`;
     }
 
@@ -1407,21 +1304,21 @@
     }
 
     async function refreshNow() {
-      await scanGmail({ silent: false, automatic: false, forceFull: false, showRefreshSpinner: true, buttonId: "refreshBtn" });
-    }
-
-    async function fullScanNow() {
-      await scanGmail({ silent: false, automatic: false, forceFull: true, showRefreshSpinner: true, buttonId: "fullScanBtn" });
+      await scanGmail({ silent: false, automatic: false });
     }
 
     function triggerInitialAutoScan() {
-      // Initial checking is handled by bootApp so the Refresh button can show a real loading state.
+      if (state.hasInitialAutoScan || state.automationSettings.auto_scan_enabled === false) return;
+      state.hasInitialAutoScan = true;
+      setTimeout(() => {
+        if (!state.isScanning) scanGmail({ silent: true, automatic: true });
+      }, 900);
     }
 
     function startAutoRefreshLoops() {
       if (!state.dashboardTimer) {
         state.dashboardTimer = setInterval(() => {
-          if (!state.isScanning) loadDashboard({ silent: true });
+          if (!state.isScanning) loadDashboard();
         }, 30000);
       }
 
@@ -1432,7 +1329,7 @@
 
       if (state.automationSettings.auto_scan_enabled !== false) {
         state.autoScanTimer = setInterval(() => {
-          if (!state.isScanning) scanGmail({ silent: true, automatic: true, showRefreshSpinner: false });
+          if (!state.isScanning) scanGmail({ silent: true, automatic: true });
         }, intervalMs);
       }
     }
@@ -1440,29 +1337,30 @@
     async function scanGmail(options = {}) {
       if (state.isScanning) return;
       state.isScanning = true;
-      const showSpinner = options.showRefreshSpinner !== false;
-      const buttonId = options.buttonId || "refreshBtn";
-      const loadingText = options.forceFull ? "Running full scan from June 2026..." : "Checking for new emails...";
       try {
-        setLoading(true, loadingText, showSpinner, buttonId);
-        const data = await api("/api/scan", {
-          method: "POST",
-          body: JSON.stringify({ force_full: Boolean(options.forceFull) })
-        });
+        setLoading(true, options.automatic ? "Auto scanning Gmail..." : "Scanning Gmail...");
+        const data = await api("/api/scan", { method: "POST" });
         if (!options.silent) {
-          const checked = data.emails_checked ?? 0;
-          const accepted = data.emails_accepted ?? 0;
-          const renewals = data.renewal_added ?? 0;
-          const newerThan = data.incremental_newer_than && !data.full_scan ? ` Newer than ${formatSimpleTime(data.incremental_newer_than)}.` : "";
-          const label = data.full_scan ? "Full scan complete." : "Refresh complete.";
-          showToast(`${label}${newerThan} Checked ${checked} possible email threads, added ${accepted}, renewal requests ${renewals}, prepared ${data.suggested_replies || 0} suggested replies, auto-sent ${data.auto_orders_sent || 0} order welcomes.`);
+          showToast(`Scan complete. Prepared ${data.order_replies_waiting || 0} order replies for approval, skipped ${data.failed_orders_skipped || 0} failed orders, and prepared ${data.suggested_replies || 0} suggested replies.`);
         }
-        await loadDashboard({ silent: true });
+        await loadDashboard();
       } catch (error) {
-        if (!options.silent) showToast(error.message);
+        showToast(error.message);
       } finally {
         state.isScanning = false;
-        setLoading(false, "Ready", showSpinner, buttonId);
+        setLoading(false);
+      }
+    }
+
+
+    async function toggleFavoriteEmail(threadId, isFavorite) {
+      try {
+        const method = isFavorite ? "DELETE" : "POST";
+        await api(`/api/favorites/${threadId}`, { method });
+        showToast(isFavorite ? "Removed from favorites." : "Favorited. This thread will stay on the dashboard.");
+        await loadDashboard({ silent: true });
+      } catch (error) {
+        showToast(error.message);
       }
     }
 
@@ -1633,19 +1531,8 @@
       return formatEmailDateTime(value);
     }
 
-    async function bootApp() {
-      state.pageLoaded = false;
-      setRefreshButtonLoading(true);
-      try {
-        await loadDashboard({ silent: true, showRefreshSpinner: true });
-        await scanGmail({ silent: true, automatic: true, forceFull: false, showRefreshSpinner: true });
-      } finally {
-        state.pageLoaded = true;
-        setRefreshButtonLoading(false);
-      }
-    }
-
-    bootApp();
+    loadTemplates();
+    loadDashboard();
   </script>
 </body>
 </html>

@@ -4440,154 +4440,278 @@ app.view_functions["api_send_reply"] = api_send_reply
 
 
 # ---------------------------------------------------------------------
-# FINAL REQUEST PATCH: wider personal/thread pickup + Gmail templates
+# FINAL PATCH: wider personal inbox capture, strict work/personal split,
+# favorites, static templates, daily paragraph briefing, and safer thread updates.
 # ---------------------------------------------------------------------
-# This patch intentionally does not change the working renewal/order/frontend
-# structure. It widens the scan funnel, catches more personal/reply-needed
-# threads, adds a Gmail-draft/template picker endpoint, and refreshes the daily
-# summary in a simpler way.
-EMAIL_SCREENING_VERSION = "2026-06-wide-personal-templates-v13"
-MAX_EMAIL_THREADS_PER_SCAN = int(os.getenv("MAX_EMAIL_THREADS_PER_SCAN", "900"))
-MAX_AI_SCREENINGS_PER_SCAN = int(os.getenv("MAX_AI_SCREENINGS_PER_SCAN", "360"))
-MAX_AI_REPLIES_PER_SCAN = int(os.getenv("MAX_AI_REPLIES_PER_SCAN", "180"))
-GMAIL_TEMPLATE_CACHE_FILE = BASE_DIR / "gmail_templates.json"
+EMAIL_SCREENING_VERSION = "2026-06-personal-favorites-templates-v14"
+MAX_EMAIL_THREADS_PER_SCAN = int(os.getenv("MAX_EMAIL_THREADS_PER_SCAN", "700"))
+MAX_AI_SCREENINGS_PER_SCAN = int(os.getenv("MAX_AI_SCREENINGS_PER_SCAN", "260"))
+MAX_AI_REPLIES_PER_SCAN = int(os.getenv("MAX_AI_REPLIES_PER_SCAN", "120"))
+FAVORITE_SCAN_LIMIT = int(os.getenv("FAVORITE_SCAN_LIMIT", "300"))
+GMAIL_TEMPLATES = [
+  {
+    "title": "Info Qualifying MCQ QBank and MOCK course",
+    "body": "Welcome to pharmacy prep. Now we are enrolling in a qualifying MCQ Bank and MOCK course prep course as soon as you enroll, we will provide you with books and a study plan so you can begin your preparations.\n\nWe are pleased to inform you that; we have been offering highly structured study material for over 25 years and trained nearly 20,000 pharmacy students for licensing exam preparations.\n\nWith this package, you will gain access to online Q&A Bank and mock tests access for 1 year. This is a self-paced program so you decide when you study.\n\nPharmacist MCQ bank and MOCK course Package Includes;\n\n●        4000+ QBank Questions: Pharmacist Qualifying Exam style questions with a clinical vignette, multiple choice answers and rationales (presented as chapters). Continuous updates to the questions and explanations.\n●        25+ Timed Exam Simulations (MOCKS): Computer-based tests Simulate real pharmacy exams to prepare students for the test environment. Accessible anytime for self-paced attempts.\n●        Custom Quiz Builder: Allow students to generate custom quizzes on topics where they need the most practice.\n●      Online access to Qualifying Exam Review and Guide\n●        QBank organized chapter-wise across the 6 core competencies of the syllabus:\n1. Providing Care\n1A Clinical Care\n1 B Drug distribution\n2. Communication and Collaboration~\n3. Professionalism\n4. Knowledge and Expertise\n5. Leadership and Stewardship\n\nCourse fee;$690+tax\nPlz find link below with details\nhttps://www.pharmacyprep.com/store/category/pebc-qualifying-exam-mcq-courses-and-books/qualifying-exam-mcq-crash-course/\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Evaluating Exam QBank and MOCK course",
+    "body": "Welcome to pharmacy prep; Now we are enrolling for pharmacist evaluating exam crash course with QBank and MOCK exams and the prep course is updated new blueprint.\n\nWe are pleased to inform that; we have been offering highly structured study material over 25 years and trained nearly 20,000 pharmacy students for licensing exam preparations.\n\nThis course package includes; We provide online access to our platform that enables access to:\n4000+ Q Bank questions and answers include 4 formats of Q&A\nChapter-wise Practice Q&A (covering entire syllabus must read topics)\nTest mode: COMPUTER BASED TESTs (like a real test)\nMOCK EXAMS Reading mode questions and detail answers\nTest yourself and score cards\nVideo lectures for each chapter\nDigital Evaluating review books and Q&A Books\nDigital clinical pharmacology books\nCourse is valid for 1 year.\nHow to ENROLL\nCan enroll online at;\nhttps://pharmacyprep.com/store/PEBC-Evaluating-Exam-Courses-amp-Books/Evaluating-Exam-In-class-Courses/Evaluating-Exam-In-Class-Crash-Course-c595/\nOR\nCAN ENROLL BY SENDING COURSE Fee by E-transfer\nTo pay for the online access please send an e-transfer. Please email your etransfer to \"success@pharmacyprep.com\" and please email us the password created for etransfer\n\nWe hope the information is sufficient to answer all your questions, if you still have any questions, please do not hesitate to e-mail of CALL/TEXT/SMS us at 647-221-0457\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Info OSPE  Prep Course",
+    "body": "Dear Angelina\nWelcome to Pharmacy Prep!\nWe are now enrolling for the Pharmacy Technician OSPE Preparation Course.\nThe course is available in two formats:\nOnline live interactive classes\nIn-person classes at Pharmacy Prep locations\nCourse Features\nLive lectures once per week with interactive OSPE role-play sessions\nAccess to recorded lectures for review anytime\nTechnician OSPE books covering 100% of the syllabus\nAccess to our ePrepStation online platform with OSPE video library\nSimulated OSPE MOCK exams designed like the real exam\nOnline and on-campus learning options available\nONLINE LIVE CLASS SCHEDULE\nStart Date: June 21, 2026\nDay: Sunday\nTime: 4:00 PM – 8:00 PM (Toronto Time)\nTo enroll, please use the link below:\nhttps://www.pharmacyprep.com/store/books/ospe-home-study-plus-online/\nThank you once again, and we look forward to hearing from you.\nRegards,\nPharmacy Prep"
+  },
+  {
+    "title": "Welcome. Enrolled Prep Course",
+    "body": "Dear\nWelcome. Enrolled in the Prep course. We will email you the course login details soon.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome.Enrolled Pharm MCQ-Prep Course",
+    "body": "Dear  Janvier\nWelcome. We have enrolled you in the Pharmacist Qualifying MCQ online home study course.. Please find below the login for an online exam prep station that enables access to  STUDY PLAN, live lecture, recorded lectures, QBANK, MOCK EXAMS AND DIGITAL BOOKS chapter-wise lecture notes.\n\nPlease find online access at www.pharmacyprep.com\n\nlogin:\n\npassword:\n\nTo log in to  Pharmacist MCQ Prep course from the  registered courses on the eprepstation home page . Select Pharmacist Qualifying MCQ Prep course\n\nQBANK links are in  6 competencies of the syllabus:\nCompetency 1a: Providing Patient Care\nCompetency 1b  Providing care: Drug distribution\nCompetency 2 : Knowledge and Expertise\nCompetency 3  Communication and Collaboration\nCompetency 4:   Leadership and Stewardship\nCompetency 5  Professionalism\n\nCan select the Chapterwise Q&A, Computer based tests and MOCK exams section to practice simulated mock exams.\nComputer-Based Tests (simulate actual exams).\n\nWe will be happy to set up a virtual meeting to guide you and give you a study plan. Please let us know\n\nWe are mailing Qualifying review book to your address.\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Info: Pharmacist MCQ & OSCE Prep Course",
+    "body": "Welcome. to pharmacy prep. Thank you for your interest in the PEBC Qualifying Exam (QE) Part I – MCQ and Part II – OSCE courses. We are currently enrolling, and upon registration, you receive full access to all materials.\nWhat You Get\nComprehensive prep system with case-based videos + thousands of exam-style questions to build clinical thinking\nPerformance tracking & readiness assessment (mastered / needs improvement + pass prediction)\nPersonalized study plans  with day-by-day guidance\nDetailed rationales + visuals + expert walkthroughs for every question\nContinuous improvement tools: Qbank analytics, missed-item review, webinars & study groups\n\nMCQ Course Highlights\nStructured study plan covering all competencies\nLive classes (Thu & Sat, 4–8 PM) + recorded lectures\nChapter-wise Qbank with explanations\nComputer-based mock exam\n1-year access\n\nOSCE Course Highlights\nWeekly live pharmacist-led role plays (Sun 4–8 PM)\nStructured cases with feedback\nFull-day OSCE mock\nRecorded sessions + 1-year access\n\nWhy Choose Us\n25+ years of experience\n20,000+ pharmacists trained\nStructured, guided, exam-focused preparation\n\nEnrollment\nRegister here:\nhttps://www.pharmacyprep.com/store/books/pharmacy-qualifying-exams-part-i-2-combo-home-study-plus-online-mcqosce/\nSupport: 647.221.0457 (Call/WhatsApp/Text)\nSeats are limited. Please confirm schedules on the official website before registering.\nBest regards,\nPharmacy Prep\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome.Enrolled Pharm MCQ-QBank and MOCK course",
+    "body": "Dear\nWelcome. We have enrolled you in the Pharmacist Qualifying MCQ QBANK and MOCK course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, recorded lectures, QBANK, MOCK EXAMS AND DIGITAL BOOKS chapter-wise lecture notes.\n\nPlease find online access at www.pharmacyprep.com\n\nlogin\n\npassword:\n\nTo log in to  Pharmacist MCQ BANK and MOCK course from the  registered courses on the eprepstation home page\n\nQBANK links are in  6 competencies of the syllabus:\nCompetency 1a: Patient Care & Therapeutic Decision-Making\nCompetency 1b  Pharmaceutical Calculations\nCompetency 2  Drug Information & Evidence-Based Practice\nCompetency 3  Medication Safety & Quality Assurance\nCompetency 4:  Communication & Patient Education\nCompetency 5  Professional Practice, Ethics & Legal\nCompetency 6: Health Promotion & Public Health\n\nCan select the MOCK exams section to practice simulated mock exams.\nComputer-Based Tests (simulate actual exams).\n\nWe will be happy to set up a virtual meeting to guide you and give you a study plan. Please let us know\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Info Qualifying MCQ QBank and MOCK course",
+    "body": "I really apologize for missing your email .\nPlz find details yes Qualifying QBank courses include chapter wise quizzes and competency wise and then final all competency wise quizzes includes in course\n\nWelcome to pharmacy prep. Now we are enrolling in a qualifying MCQ Bank and MOCK course prep course as soon as you enroll, we will provide you with books and a study plan so you can begin your preparations.\n\nWe are pleased to inform you that; we have been offering highly structured study material for over 24 years and trained nearly 10,000 pharmacy students for licensing exam preparations. Pharmacy Prep Online Plus Home Study helps you to get real results. The home study package contains the most recent updates of high-yield material and covers every topic in depth that gets you real success. With this package, you will gain access to online Q&A and mock tests access for 1 year. This is a self-paced program so you decide when you study.\n\nPharmacist MCQ course Package Includes;\n\n●        4000+ QBank Questions: Pharmacist Qualifying Exam style questions with a clinical vignette, multiple choice answers and rationales (presented as chapters). Continuous updates to the questions and explanations.\n●        25+ Timed Exam Simulations (MOCKS): Computer-based tests Simulate real pharmacy exams to prepare students for the test environment. Accessible anytime for self-paced attempts.\n●        Custom Quiz Builder: Allow students to generate custom quizzes on topics where they need the most practice.\n●        Weekly 2-day live lectures are scheduled on Saturday and Thursday 4 pm to 8bpm and they are recorded and uploaded to the study plan accessible any time after live lectures.\n●        A Qualifying Exam Review and Guide 2025\n●        QBank organized chapter-wise across the 9 core competencies of the syllabus:\n1. Providing Care\n1A Clinical Care\n1 B Drug distribution\n2. Communication and Collaboration~\n3. Professionalism\n4. Knowledge and Expertise\n5. Leadership and Stewardship\n\nCourse fee;$690+tax\nPlz find link below with details\nhttps://www.pharmacyprep.com/store/category/pebc-qualifying-exam-mcq-courses-and-books/qualifying-exam-mcq-crash-course/\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Info: FPGEE Prep Courses",
+    "body": "Now enrolling for FPGEE prep courses\n\nWe offer two types of fpgee prep courses\n1. FPGEE self study course\nWhich include. Online access to complete syllabus FPGEE complete review book, chapter-wise Q&A, (QBank) and Mock exams (simulate real exams). Recorded lecture for each topic, flashcards on high yield points.\nCourse fee US$290\nPlz find link below to enroll\nhttps://buy.stripe.com/eVa29JfT167ha8UfZR\n\n2.  FPGEE home study course\nWhich include above all content and additional weekly online live interactive lectures\nCourse fee US$790+tax\n\nhttps://buy.stripe.com/14k01B7mvgLVgxi3d9\n\nShould you need more information please feel free to contact us\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome . Received order for Clinical Pharmacology and Pharmacy Practice Review Book",
+    "body": "Dear\nWelcome . Received order for Clinical Pharmacology and Pharmacy Practice Review Book.\nPlz text or whatsapp on 647.221.0457 to schedule book pick up from pharmacy prep locations.\n\nThe digital access of book can access with below login details\nhttps://www.pharmacyprep.com/\n\nlogin:\n\nPassword:\n\nShould you need more information. Plz feel free to email us\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enroled MCQ & OSCE Prep course",
+    "body": "Dear\nWelcome. We have enrolled you in the Pharmacist Qualifying MCQ and OSCE online home study course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES< Recorded lectures, QBANK, MOCK EXAMS AND DIGITAL BOOKS chapter-wise lecture notes.\n\nPlease find online access at www.pharmacyprep.com\n\nlogin:\n\npassword:\n\nTo log in to  Pharmacist qualifying MCQ course or Pharmacist OSCE prep course on registered/my courses from the eprepstation home page and select the qualifying MCQ Course\n\nQBANK links are in  9 competencies of the syllabus:\nCOMPETENCY 1: Assume Ethical, Legal and Professional Responsibilities\nCOMPETENCY 2: Patient Care\nCOMPETENCY 3: Product Distribution\nCOMPETENCY 4: Practice Setting\nCOMPETENCY 5: Health Promotion\nCOMPETENCY 6: Access, Retrieve, Evaluate and Disseminate Relevant Information\nCOMPETENCY 7: Communication Skills in Pharmacy Practice\nCOMPETENCY 8: Collaboration with healthcare professionals and teamwork.\nCOMPETENCY 9: Quality assurance\n\nCan select the MOCK exams section to practice simulated mock exams.\nComputer-Based Tests (simulate actual exams).\n\nOnline Class scheduled for MCQ Course Saturday and Thursday 4pm to 8pm\nOnline Class schedule for OSCE course Sunday 4pm to 8pm\n\nWe are mailing books to your mailing address.\nWe will be happy to set up a virtual meeting to guide you and give you a study plan. Please let us know,\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Info MCQ and OSCE combined course",
+    "body": "Welcome to pharmacy prep.\nNow we are enrolling in upcoming classes as soon as you enroll, we provide you with books and a study plan so you can begin your preparations.\n\nPlease find complete details of QE Part I (MCQ) and II (OSCE) schedule for the online home study course with online live lectures:\nHome Study Plus Online\nWe are pleased to inform that; we have been offering highly structured study material for over 25 years and trained nearly 20,000 pharmacy students for licensing exam preparations. Pharmacy Prep Online Plus Home Study helps you to get real results. Along with home study books, you will also get online access to class lecture highlighting key points in every chapter (text based). Question Bank, and MOCK Exams through our website. The home study package contains most recent updates of high yield material and covers every topic in depth that gets you real success. With this package, you will gain access to online Q&A and mock tests access for 1 year. This is a self-paced program so you decide when you study.\n\nHome study course package includes\nLIVE ONLINE TUTORIAL CLASSES 3 days/wks. till the exam\n         Weekly LIVE online OSCE role plays with the pharmacist\n         Chapter-wise Question BANK\n         MOCK exam simulated in Computer based test like actual exams.\n         Continuous updates on Q&A with explanation.\n         Updated to new practice guidelines\n         Weekly recorded lectures\n\nMCQ Classes Schedule:\nWeekly 2 days in-class lecture live stream tutorial\nSaturday, 4:00 am-8:00 pm;  Thursday 4:00 pm - 8:00 pm\n\nOSCE Classes Schedule: Sunday 4:00 pm-8:00 pm\n\nCan enroll at our website\nhttps://www.pharmacyprep.com/store/books/pharmacy-qualifying-exams-part-i-2-combo-home-study-plus-online-mcqosce/\n\nAlternatively, can enroll by etransfer method to our email address “success@pharmacyprep.com”\n\nThe complete course fee for:\n\nCombine for QE Part I (MCQ) + Part II OSCE = $2080+ tax + shipping\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or call us at 416-223-7737.\n\nThank you once again and look forward to hearing from you.\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nWelcome. Enrolled FPGEE prep course\nDear\nWelcome.  Enrolled you in the FPGEE self-paced prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, RECORDED LECTURES, Q&A chapter-wise, MOCK EXAMS\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\nCan log in to eprepstation. On the online portal, the eprepstation home page can select FPGEE rep courses to begin preparing.\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\n\nTo log in to QBank and model (mock) exams. Click on registered courses from the eprepstation home page and select the computer-based tests and  Mock exams.\n\nQBank can access each chapter-wise which is linked in below six sections of the syllabus and can be selected from the cover page of the sections.\n  Biomedical Science\n  Pharmaceutical Science\n  Social Behavioural, Administrative Sciences\n  Pharmacy practice\n  Clinical pharmacology\n  Calculations\nCan select the MOCK exams section to practice simulated Computer-based test mock exams.\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep"
+  },
+  {
+    "title": "Welcome Enrolled Tech MCQ Prep course",
+    "body": "Welcome. We have enrolled you in the Pharmacy prep tech qualifying MCQ prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES, QBANK, MOCK EXAMS, COMPUTER-BASED TESTS, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:   erikatakahashi04@gmail.com\nPassword: etechmcqprep2026\n\nTo begin preparing, select registered courses and select tech-qualifying MCQ prep course.\nContent is grouped in competencies\n         Ethical, Legal and Professional Responsibilities\n         Patient Care\n         Product Distribution\n         Practice Setting\n         Health Promotion\n         Knowledge and Research Application\n         Communication and Education\n         Intra and Inter-Professional Collaboration\n         Quality and Safety\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures. and select the class in link in calendar.\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures on\n\nMCQ classes start date Jan 31 2026  Live Lecture Saturdays 4pm to 8pm\n\nPlz text on 647.221.0457 to schedule book pick up from pharmacy prep Brampton location. https://maps.app.goo.gl/ActEPYQcigzGfA83A\n\nWe can set up online meeting to walk you through prep course and give you a study plan. Please let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome . Enrolled Tech MCQ and OSPE prep course",
+    "body": "Welcome. We have enrolled you in the Pharmacy prep tech qualifying MCQ and OSPE prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES, QBANK, MOCK EXAMS, COMPUTER-BASED TESTS, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo begin preparing, select registered courses and select tech-qualifying MCQ prep course.\nContent is grouped in competencies\n         Ethical, Legal and Professional Responsibilities\n         Patient Care\n         Product Distribution\n         Practice Setting\n         Health Promotion\n         Knowledge and Research Application\n         Communication and Education\n         Intra and Inter-Professional Collaboration\n         Quality and Safety\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures on\n\nMCQ classes on Live Lecture Saturdays 4pm to 8pm\n\nand\nOSPE classes on live lecture Sunday 4pm to 8pm\n\nWe can set up online meeting to walk you through prep course and give you a study plan.\n\nWe are mailing books to your address.\n\nPlease let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled  In.person Evaluating exam prep course",
+    "body": "Welcome. Enrolled you in the pharmacy prep evaluating exam online prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE/ & RECORDED LECTURES, Question Bank, MOCK EXAMS AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\nYou can log in to eprepstation. On the online portal, the eprepstation home page. From the main bar, select the registered courses. Click the Evaluating Exam Prep course.\nThe evaluation exam home page. Click on each section and chapter, and each chapter has lecture notes, Q&A, tips and recorded videos. Additionally, Mock exams.The computer-based tests on the left main bar\n\nThe evaluation exam course has three sections of the syllabus below, and can be selected from the cover page of the sections.\n  Pharmaceutical Science\n  Social Behavioural, Administrative Sciences\n  Pharmacy practice\n\nCan select the MOCK exams section to practice simulated Computer-based test mock exams.\n\nDigital Evaluating review books and clinical pharmacology books.\n\nClasses are on Saturday and Sunday, 10 am to 2 pm (Toronto time)\n\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\n\nShould you need further assistance, please do not hesitate to contact us.\n\nRegards,\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled OSCE self learning prep coruse",
+    "body": "Welcome. We enrolled you in the pharmacist OSCE self-study prep course. Please find below the login for an online exam prep station that enables access to  OSCE VIDEO BANK AND OSCE CASES.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo log in to eprepstation, click on registered courses from eprepstation home page and select the Tips Pharmacist  OSCE prep course.\n\nShould you need help with a study plan . Please email us we can set up an online meeting schedule to discuss your OSCE study plan.\n\nWe are mailing OSCE Review Book to your address.\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled OPRA self paced prep course",
+    "body": "Welcome. Enrolled you in the OPRA Exam prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, RECORDED LECTURES, Question Bank, MOCK EXAMS AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\n\nYou can log in to eprepstation. On the online portal, the eprepstation home page. From the main bar, select course registered courses. Click the Australian Pharmacy Exam Prep course.\nOn the Australian Pharmacy Exam Prep course. Click on each section and chapter and each chapter has lecture notes, Q&A, tips and recorded videos. Additionally  Mock exams.the computer-based tests on the left main bar\nThe OPRA Exam course has five sections of the syllabus below and can be selected from the cover page of sections.\nBiomedical Sciences\nPharmacokinetics and Pharmacodynamics\nMedicinal Chemistry and Pharmaceutics\nPharmacology: Drug classes based on mechanism of action (Astrx)\nTherapeutic and Patient Care\n\nEach section's content is covered as per the syllabus of Biomedical Sciences (20%), Medicinal Chemistry & Biopharmaceutics (20%), Pharmacokinetics & Pharmacodynamics (20%), Pharmacology & Toxicology (20%), and Therapeutics & Patient Care (20%)\n\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Pharmacist MCQ Bank and MOCK Course",
+    "body": "Welcome to Pharmacy Prep! We are currently accepting enrollments for our Pharmacist MCQ Bank and MOCK exams.\nFor over 25 years, we have provided highly structured study materials that have helped thousands of students excel in qualifying exams.\n\nThe Pharmacist MCQ QBank and MOCK EXAMS package includes the following:\n●        4000+ QBank Questions: Pharmacist Qualifying Exam style questions with clinical vignette, multiple choice answers and rationales (presented as chapterwise).\n●        25+ Timed Exam Simulations (MOCKS): Computer-Based Tests Simulate real pharmacy exams to prepare students for the test environment.\n●        Custom Quiz Builder: Allow students to generate custom quizzes on topics where they need the most practice.\n●        Continuous updates to the questions and explanations.\n●        Weekly live lectures that are recorded and uploaded to the study plan\n●        A digital Qualifying Exam Review and Guide 2025\nQBank is organized chapter-wise across the 9 core competencies of the syllabus:\nCOMPETENCY 1: Assume Ethical, Legal and Professional Responsibilities\nCOMPETENCY 2: Patient Care\nCOMPETENCY 3: Product Distribution\nCOMPETENCY 4: Practice Setting\nCOMPETENCY 5: Health Promotion\nCOMPETENCY 6: Access, Retrieve, Evaluate and Disseminate Relevant Information\nCOMPETENCY 7: Communication Skills in Pharmacy Practice\nCOMPETENCY 8: Collaboration with healthcare professionals and teamwork.\nCOMPETENCY 9: Quality assurance\n\nThe prep course is valid for 1 year.\n\nThe course fee for this package is $690+ Tax. Enrollment is now open, and you can register using the link below: https://www.pharmacyprep.com/store/category/pebc-qualifying-exam-mcq-courses-and-books/qualifying-exam-mcq-crash-course/\n\nIf you have any concerns, please do not hesitate to email or call us at 416-223-7737. Thank you for considering Pharmacy Prep, and we look forward to hearing from you.\nRegards,\n--\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nPharmacy prep OSCE prep course\nDear Haitam\nNow we are enrolling in upcoming classes as soon as you enroll, we provide you online access with books and a study plan so you can begin your preparations.\n\nHome Study Plus Online\n\nWe are pleased to inform you that we have been offering highly structured study material for over 25 years and have trained nearly 10,000 pharmacy students for licensing exam preparations. Pharmacy Prep Online Plus Home Study helps you to get real results.\n\nThe OSCE Online plus MOCK EXAM features the following:\n\n  Weekly Live OSCE Roleplay with a licensed pharmacist for interactive practice.\n  Recorded Sessions are available for flexible access if you miss the live class. http://pharmacyprep.com/osce-review-classes.html\n  Comprehensive OSCE Guidebook: \"OSCE: A Step-by-Step Review Guide\".\n  Extensive Video Library featuring licensed Canadian pharmacists roleplaying various cases.\n  One Full-Day Mock Exam included, with 1-year online access to all course materials.\n\nLIVE LECTURE/ROLE PLAY:  August 30, 2025, Sunday, 4 pm to 8 pm\nOnce you sign up and pay the fees, the package will be mailed to you by express post, and a tracking number will be emailed to you for tracing it. The professors are available to help and guide you during the course of your preparation. You can anytime correspond BY Email or phone. The course fee of the package is $990 +tax+ shipping.\n\nPlease can you enroll by the link below\nhttps://www.pharmacyprep.com/store/books/pebc-osce-home-study-course-plus-osce-video-library/\n\nThis course can be upgraded to one-on-one training online with a Pharm. D. licensed pharmacist. This will be an additional cost based on the number of hours of training.\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or call us at 416-223-7737.\n\nThank you once again, and look forward to hearing from you.\n\nRegards,\n\nPharmacy Prep"
+  },
+  {
+    "title": "Welcome. Enrolled OSCE Prep Course",
+    "body": "Welcome. We enrolled you in the Pharmacy Prep Qualifying  OSCE prep online course. Please find below the login for an online exam prep station that enables access to LIVE LECTURE, STUDY PLAN,  OSCE VIDEO BANK, AND OSCE CASES.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo login to eprepstation click on registered courses from the eprepstation home page and select the Pharmacist qualifying  OSCE prep course.\n\nTo join an interactive online lecture. Please connect to the \"LIVE LECTURE\" link during class hours. This link can be found on the eprepstation home page.\n\nPlease join the live interactive OSCE weekly role-play scheduled start date on August 31 2025 SUNDAY 4 pm to 8 pm (Eastern Time).\n\nshould you need help in study plan . Please email us we can set up an online meeting schedule to discuss your OSCE study plan.\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. OSPE MOCKS Course",
+    "body": "Dear\nWe have enrolled you in the OSPE crash course  on\nSeptember 01 Monday, Time 10:00 AM to 3:00 PM\nSeptember 02, 2025 Tuesday, Time 10:00 AM to 3:00 PM\n\nPharmacy prep\nLocation:\nHoliday Inn Toronto Airport East\nAddress: 600 Dixon Road\nToronto, ON M9W 1J1\n\nPharmacy Prep 416-223-7737/647-221-0457\n\nPlz can login at online ospe cases at www.pharmacyprep.com\nlogin:\nPassword:\n\nMock Simulation exams for the students preparing for Pharmacy Technician OSPE. The whole approach of providing you with Quality stations and knowledgeable assessors goes a big way in supporting you and improving your confidence level in clearing the same.\n\nEach day Fourteen OSPE stations includes Interactive and Non-interactive Station.\n\nEach Stations: Comprised of;\n30 seconds: for students to read the information displayed outside the suites and get prepared\n\n6 minutes: For the students to perform (Buzzer will sound at the end of 6 minutes). There are no professional actors for these tests. So, the assessor plays the assessor and Standardized patient’s role\n2 minutes: feedback by the assessor. Please ensure the feedback forms are handed over to the students with actual grading of:\nCase outcome: solved, marginally solved, marginally unsolved, Unsolved\nCommunication: excellent, good, Marginally unacceptable, unacceptable.\n\nShould you need more information. Please feel free to contact us.\nregards\n--\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled FPGEE Self-paced prep course",
+    "body": "Welcome.  Enrolled you in the FPGEE self-paced prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, RECORDED LECTURES, Q&A chapter-wise, MOCK EXAMS\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\nCan log in to eprepstation. On the online portal, the eprepstation home page can select FPGEE rep courses to begin preparing.\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\n\nTo log in to QBank and model (mock) exams. Click on registered courses from the eprepstation home page and select the computer-based tests and  Mock exams.\n\nQBank can access each chapter-wise which is linked in below six sections of the syllabus and can be selected from the cover page of the sections.\n  Biomedical Science\n  Pharmaceutical Science\n  Social Behavioural, Administrative Sciences\n  Pharmacy practice\n  Clinical pharmacology\n  Calculations\nCan select the MOCK exams section to practice simulated Computer-based test mock exams.\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome . Enrolled tech OSPE prep course",
+    "body": "Dear  Gifty\nWelcome. We have enrolled you in the Pharmacy prep tech qualifying OSPE prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES,  Chapter-wise OSPE cases, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name: maflex99@yahoo.com\nPassword: gbospeprep2025\n\nTo begin preparing, select registered courses and select Pharmcy tech OSPE prep course.\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures on\n\nOSPE classes on Live Lecture Sundays 4pm to 8pm\n\nWe can set up online meeting to walk you through prep course and give you a study plan.\n\nPlz text on 647.221.0457 to schedule book pick up from the pharmacy prep location in Toronto.\n\nPlease let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nPharmacy Prep"
+  },
+  {
+    "title": "Pharmacist QUALIFYING MCQ",
+    "body": "Welcome to pharmacy prep. Now we are enrolling in a qualifying MCQ prep course as soon as you enroll, we will provide you with books and a study plan so you can begin your preparations.\n\nWe are pleased to inform you that; we have been offering highly structured study material for over 24 years and trained nearly 10,000 pharmacy students for licensing exam preparations. Pharmacy Prep Online Plus Home Study helps you to get real results. The home study package contains the most recent updates of high-yield material and covers every topic in depth that gets you real success. With this package, you will gain access to online Q&A and mock tests access for 1 year. This is a self-paced program so you decide when you study.\n\nPharmacist MCQ course Package Includes;\n\n●        4000+ QBank Questions: Pharmacist Qualifying Exam style questions with a clinical vignette, multiple choice answers and rationales (presented as chapters). Continuous updates to the questions and explanations.\n●        25+ Timed Exam Simulations (MOCKS): Computer-based tests Simulate real pharmacy exams to prepare students for the test environment. Accessible anytime for self-paced attempts.\n●        Custom Quiz Builder: Allow students to generate custom quizzes on topics where they need the most practice.\n●        Weekly 2-day live lectures are scheduled on Saturday and Thursday 4 pm to 8bpm and they are recorded and uploaded to the study plan accessible any time after live lectures.\n●        A Qualifying Exam Review and Guide 2025\n●        QBank organized chapter-wise across the 9 core competencies of the syllabus:\n●        COMPETENCY 1: Assume Ethical, Legal and Professional Responsibilities\n●        COMPETENCY 2: Patient Care\n●        COMPETENCY 3: Product Distribution\n●        COMPETENCY 4: Practice Setting\n●        COMPETENCY 5: Health Promotion\n●        COMPETENCY 6: Access, Retrieve, Evaluate and Disseminate Relevant Information\n●        COMPETENCY 7: Communication Skills in Pharmacy Practice\n●        COMPETENCY 8: Collaboration with healthcare professionals and teamwork.\n●        COMPETENCY 9: Quality assurance\n●\nCourse fee;\n$990 includes& digital access to the digital online Qualifying Exam Review book (covers all competencies and Q&A bank\nor\n$1190 includes Qualifying Exam Review book (covers all competencies Q&A books mailed to you – also included digital access to all books and QBank.\n\nOnce you sign up and pay the fees, the package will be mailed to you by express post and a tracking number will be emailed to you for the track it. The professors are available to help and guide you during the course of your preparation.\nhttps://pharmacyprep.com/store/PEBC-Qualifying-MCQ-Courses-amp-Books/PEBC-Qualifying-Exam-MCQ-Home-Study/PEBC-Qualifying-Exam-Home-Study-Plus-Online-Course-with-physical-Q-A-books-p1559.html\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or call us at 416-223-7737.\nThank you once again and look forward to hearing from you.\n\nRegards,"
+  },
+  {
+    "title": "Welcome Tech MCQ Prep course",
+    "body": "Dear Diljot\nWelcome. We have enrolled you in the Pharmacy prep tech qualifying MCQ prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES, QBANK, MOCK EXAMS, COMPUTER-BASED TESTS, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo begin preparing, select registered courses and select tech-qualifying MCQ prep course.\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures on\n\nMCQ classes on Live Lecture Saturdays 4pm to 8pm\n\nWe can set up online meeting to walk you through prep course and give you a study plan. Please let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome.Enrolled Pharm MCQ Bank and MOCK course",
+    "body": "Welcome. We have enrolled you in the Pharmacist Qualifying MCQ QBANK and MOCK course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, recorded lectures, QBANK, MOCK EXAMS AND DIGITAL BOOKS chapter-wise lecture notes.\n\nPlease find online access at www.pharmacyprep.com\n\nlogin:\n\npassword:\n\nWe will be happy to set up a virtual meeting to guide you and give you a study plan. Please let us know,\n\nTo log in to  Pharmacist MCQ BANK and MOCK course from the  registered courses on the eprepstation home page\n\nQBANK links are in  9 competencies of the syllabus:\nCOMPETENCY 1: Assume Ethical, Legal and Professional Responsibilities\nCOMPETENCY 2: Patient Care\nCOMPETENCY 3: Product Distribution\nCOMPETENCY 4: Practice Setting\nCOMPETENCY 5: Health Promotion\nCOMPETENCY 6: Access, Retrieve, Evaluate and Disseminate Relevant Information\nCOMPETENCY 7: Communication Skills in Pharmacy Practice\nCOMPETENCY 8: Collaboration with healthcare professionals and teamwork.\nCOMPETENCY 9: Quality assurance\n\nCan select the MOCK exams section to practice simulated mock exams.\nComputer-Based Tests (simulate actual exams).\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome Tech MCQ and OSPE",
+    "body": "--\nWelcome. We have enrolled you in the Pharmacy prep tech qualifying MCQ and OSPE prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES, QBANK, MOCK EXAMS, COMPUTER-BASED TESTS, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo begin preparing, select registered courses and select tech-qualifying MCQ prep course.\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures on\n\nMCQ classes on Live Lecture Saturdays 4pm to 8pm\n\nWe can set up online meeting to walk you through prep course and give you a study plan. Please let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nPharmacy Prep"
+  },
+  {
+    "title": "Info TECH MCQ Course: Pharmacy technician mcq",
+    "body": "Dear Dona\nWelcome to pharmacy prep. Now we are enrolling for Technician MCQ prep courses. Now enrolling for upcoming PEBC tech MCQ and OSPE prep courses.\nThe review for the course contains,\n         Live lectures once a week\n         Tech MCQ  covering 100% syllabus. Updated to new syllabus 2025\n         Online access to our eprepstation platform\n         Must pass QBANK; Practice Q&A for each chapter\n          COMPUTER BASED TESTS like a real test practice and top 20 MOCK Exams\n         OSPE simulated MOCK exams practice like real exam\n         Weekly recorded lectures\nOnline/on-campus\nONLINE LIVE Classes SCHEDULE:\nMCQ classes:     Saturday 4:00 pm to 8:00 pm\n\nPharmacy Prep has been offering for the past 25years the most comprehensive prep course in Canada. As we are 100% committed to your success. To keep you on track, and on top of lectures, we give you more practice tests and practice stations than any other prep company. Our format will keep you energized, and focused and familiarize you with how quickly to decipher and successfully pass your exam.\nMaterial Provided: books and lecture notes will be provided during the course.\nOnce you sign up and pay the fees, the package will be mailed to you by express post and a tracking number will be emailed to you for tracing it. The professors are available to help and guide you during the course of your preparation. You can anytime correspond BY Email or phone. The MCQ  course fee is $790 +tax+ shipping. Also, the 1-year access will be active 1-2 days after your purchase for one year.\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or\nPlz find details below\nhttps://www.pharmacyprep.com/store/books/pebc-pharmacy-technician-qualifying-exam-home-study-package/\n\nThank you once again and look forward to hearing from you.\nRegards,\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled EE QBANK and MOCK Course",
+    "body": "Welcome. Enrolled you in the pharmacy prep evaluating exam QBank, and MOCK course. Please find below the login for an online exam prep station that enables access to STUDY PLAN,  RECORDED LECTURES, Question Bank, MOCK EXAMS AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\nYou can log in to eprepstation. On the online portal, the eprepstation home page. From the main bar, select the registered courses. Click the Evaluating Exam QBank and MOCK course.\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\nThe evaluation exam home page. Click on each section and chapter, and each chapter has lecture notes, Q&A, tips and recorded videos. Additionally, Mock exams.The computer-based tests on the left main bar\n\nThe evaluation exam course has three sections of the syllabus below, and can be selected from the cover page of the sections.\n  Pharmaceutical Science\n  Social Behavioural, Administrative Sciences\n  Pharmacy practice\n\nCan select the MOCK exams section to practice simulated Computer-based test mock exams.\n\nDigital Evaluating review books and clinical pharmacology books.\n\nShould you need further assistance, please do not hesitate to contact us.\n\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nPharmacy Prep\n\nPharmacy Prep\n\nPharmacy Prep"
+  },
+  {
+    "title": "Tech MCQ and OSPE Prep course",
+    "body": "Welcome to pharmacy prep. Now we are enrolling for Technician MCQ and OSPE prep courses. Now enrolling for upcoming PEBC tech MCQ and OSPE prep courses.\nThe review for the course contains,\n         Live lectures 2 days/wks\n         Tech MCQ and OSPE Books covering 100% syllabus. Updated to new syllabus 2025\n         Online access to our eprepstation platform\n         Must pass QBANK; Practice Q&A for each chapter\n          COMPUTER BASED TESTs like a real test practice and top 20 MOCK Exams\n         OSPE simulated MOCK exams practice like real exam\n         Weekly recorded lectures\nOnline/on-campus\nONLINE LIVE Classes SCHEDULE:\nMCQ classes:     Saturday 4:00 pm to 8:00 pm\n\nOSPE classes:   Sunday 4:00 pm to 8:00 pm\n\nPharmacy Prep has been offering for the past 24 years the most comprehensive prep course in Canada. As we are 100% committed to your success. To keep you on track, and on top of lectures, we give you more practice tests and practice stations than any other prep company. Our format will keep you energized, and focused and familiarize you with how quickly to decipher and successfully pass your exam.\nMaterial Provided: books and lecture notes will be provided during the course.\nOnce you sign up and pay the fees, the package will be mailed to you by express post and a tracking number will be emailed to you for tracing it. The professors are available to help and guide you during the course of your preparation. You can anytime correspond BY Email or phone. The combined MCQ and OSPE course fee is $1190 +tax+ shipping. Also, the 1-year access will be active 1-2 days after your purchase for one year.\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or call us at 416-223-7737 or visit https://www.pharmacyprep.com/store/books/pharmacy-technician-qualifying-exam-mcq-ospe-combined-online-course/\n\nThank you once again and look forward to hearing from you.\nRegards,\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nWelcome. Enrolled Prep Course\nWelcome. Enrolled in evaluating exam home study course. We will email you the prep course login details soon.\nregards\n--\nPharmacy Prep"
+  },
+  {
+    "title": "EE QBank and MOCK course info",
+    "body": "Welcome to pharmacy prep. Now we are enrolling for pharmacist MCQ Bank and MOCK exams.\n\nWe are pleased to inform you that; we have been offering highly structured study material for over 24 years.\n\nPharmacy prep offers Pharmacist MCQ QBANK with thousands of Q&A as chapter-wise from all 9 NAPRA competencies.  Our pharmacist MCQ question bank and mock exams are only the best way to get real success.\nPharmacist MCQ QBank and MOCK EXAMS package includes THE FOLLOWING:\nOnline access to Q Bank; Pharmacist MCQ question bank with answers and explanations.\nQBank Format: Q&A is competency and chapter wise Q&A 5000+\nComputer based tests-CBT Format(Timed)  designed to simulate an actual exam practice in COMPUTER-BASED TESTs.\nMOCK EXAMS Format are designed to learn fast pace Q&A\nWeekly live lectures are recorded and uploaded in the study plan\nDigital Qualifying Exam Review and Guide.\nThe prep course is valid for 1 year.\nCourse Fee: $690+ Tax\n\nENROLL NOW by the link below:\nhttps://www.pharmacyprep.com/store/category/pebc-qualifying-exam-mcq-courses-and-books/qualifying-exam-mcq-crash-course/\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or call us at 416-223-7737.\n\nThank you once again and look forward to hearing from you.\n\nRegards,\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled Kroll Pharmacy Software self-learning video course",
+    "body": "Welcome. Enrolled in the Pharmacy software training Kroll prep course. The self-paced learning course features expert-led recorded videos and instructions to help you master the software's functionalities. This comprehensive training enables users of all skill levels to navigate the interface smoothly, optimize workflows, and tackle challenges effectively. Ideal for beginners and experienced users alike, the course keeps you updated with the latest updates and enhances your proficiency.\n\nPlease log in to our online platform eprepstation with the details below. On the online portal, on the eprepstation home page, click registered courses and select the pharmacy software Kroll course.\n\nTo login Please visit https://www.pharmacyprep.com/\n\nLogin:\n\nPassword:\n\nThe video modules cover:\nHow to Create a New Patient Profile (data)\nHow to Search for a Patient (data)\nHow to search for a prescriber (data)\nHow to Create a new prescriber record (data)\nHow to search for a Doctor or Dentist’s Registration number (data)\nHow to search for your family doctor’s registration number on CPSO’s website (data)\nHow to enter drug discount cards (Kroll)\nExplanation of plans/insurance & How to Enter Patient’s insurance information(data)\nAdjudication issues and Intervention codes (data)\nDrug search & Generic equivalents (data)\nHow to enter drug mixtures into the patient profiles (Data)\nHow to Enter a new Rx (data)\nHow to Scan Rx’s and hard copies (data)\nRefill, Inactivate, Reactivate, Cancel, Modify or Reprint a Rx (data)\nHow to Fax for Rx refill or LU codes (data)\nReceiving & Entering a Rx Transfer from another Pharmacy (data)\nTransferring Rx from your Pharmacy to another Pharmacy (data)\nSet up patients for blister packs (data)\n\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Enrolled Pharmacist MCQ Prep Course",
+    "body": "Welcome. We have enrolled you in the Pharmacist Qualifying MCQ online home study course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES< Recorded lectures, QBANK, MOCK EXAMS AND DIGITAL BOOKS chapter-wise lecture notes.\n\nPlease find online access at www.pharmacyprep.com\n\nlogin:\n\npassword:\n\nWe will be happy to set up a virtual meeting to guide you and give you a study plan. Please let us know,\n\nTo log in to  Pharmacist qualifying MCQ course k on registered courses from the eprepstation home page and select the qualifying MCQ Course\n\nQBANK links are in  9 competencies of the syllabus:\nCOMPETENCY 1: Assume Ethical, Legal and Professional Responsibilities\nCOMPETENCY 2: Patient Care\nCOMPETENCY 3: Product Distribution\nCOMPETENCY 4: Practice Setting\nCOMPETENCY 5: Health Promotion\nCOMPETENCY 6: Access, Retrieve, Evaluate and Disseminate Relevant Information\nCOMPETENCY 7: Communication Skills in Pharmacy Practice\nCOMPETENCY 8: Collaboration with healthcare professionals and teamwork.\nCOMPETENCY 9: Quality assurance\n\nCan select the MOCK exams section to practice simulated mock exams.\nComputer-Based Tests (simulate actual exams).\n\nShould you need further assistance, please do not hesitate to contact us.\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome (1). Enrolled Pharmacy Prep Course",
+    "body": "Welcome. We have enrolled you in the Pharmacy prep course. We will email you course login details soon.\nregards\n--\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com\n\nPharmacy Prep"
+  },
+  {
+    "title": "Evaluating Exam QBank and MOCK course",
+    "body": "Welcome to pharmacy prep. Now we are enrolling for pharmacist MCQ Bank and MOCK exams.\n\nWe are pleased to inform you that; we have been offering highly structured study material for over 24 years.\n\nPharmacy prep offers Pharmacist MCQ QBANK with thousands of Q&A as chapter-wise from all 9 NAPRA competencies.  Our pharmacist MCQ question bank and mock exams are only the best way to get real success.\nPharmacist MCQ QBank and MOCK EXAMS package includes THE FOLLOWING:\nOnline access to Q Bank; Pharmacist MCQ question bank with answers and explanations.\nQBank Format: Q&A is competency and chapter wise Q&A 5000+\nComputer based tests-CBT Format(Timed)  designed to simulate an actual exam practice in COMPUTER-BASED TESTs.\nMOCK EXAMS Format are designed to learn fast pace Q&A\nWeekly live lectures are recorded and uploaded in the study plan\nDigital Qualifying Exam Review and Guide.\nThe prep course is valid for 1 year.\nCourse Fee: $690+ Tax\n\nENROLL NOW by the link below:\nhttps://www.pharmacyprep.com/store/category/pebc-qualifying-exam-mcq-courses-and-books/qualifying-exam-mcq-crash-course/\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or call us at 416-223-7737.\n\nThank you once again and look forward to hearing from you.\n\nRegards,"
+  },
+  {
+    "title": "Welcome. Enrolled Evaluating exam QBank and MOCK course",
+    "body": "Dear Jagdip\nWelcome. Enrolled you in the pharmacy prep evaluating exam QBank and MOCKs course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, & RECORDED LECTURES, Question Bank, MOCK EXAMS AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\nYou can log in to eprepstation. On the online portal, the eprepstation home page. From the main bar, select the registered courses. Click the Evaluating Exam QBank and MOCK course.\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\nThe evaluation exam home page. Click on each section and chapter, and each chapter has lecture notes, Q&A, tips and recorded videos. Additionally, Mock exams.The computer-based tests on the left main bar\n\nThe evaluation exam course has three sections of the syllabus below, and can be selected from the cover page of the sections.\n  Pharmaceutical Science\n  Social Behavioural, Administrative Sciences\n  Pharmacy practice\n\nCan select the MOCK exams section to practice simulated Computer-based test mock exams.\n\nDigital Evaluating review books and clinical pharmacology books.\n\nShould you need further assistance, please do not hesitate to contact us.\n\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled pharmacy tech MCQ prep course",
+    "body": "Welcome. We have enrolled you in the Pharmacy prep tech qualifying MCQ  prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES, QBANK, MOCK EXAMS, COMPUTER-BASED TESTS, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo begin preparing, select registered courses and select tech-qualifying MCQ prep course.\n\nPlease click the LIVE LECTURE LINK TO JOIN online lectures on\n\nMCQ classes on Live Lecture Saturdays 4pm to 8pm\n\nWe are mailing books to your address.\n\nWe can set up online meeting to walk you through prep course and give you a study plan. Please let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Received Book order",
+    "body": "Welcome. Received Book order\n\nWe are mailing book to your address soon.\nregards\n--\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Kroll Self Paced Video training course",
+    "body": "Welcome to Pharmacy\nRe: Pharmacy software Kroll - Training Videos Self-paced learning course\n\nThe self-paced learning course features expert-led recorded videos and instructions, designed to help you master the software's functionalities. This comprehensive training enables users of all skill levels to navigate the interface smoothly, optimize workflows, and tackle challenges effectively. Ideal for beginners and experienced users alike, the course keeps you updated with the latest updates and enhances your proficiency.\n\nVideo modules cover:\nHow to Create a New Patient Profile (data)\nHow to Search for a Patient (data)\nHow to search for a prescriber (data)\nHow to Create a new prescriber record (data)\nHow to search for a Doctor or Dentist’s Registration number (data)\nHow to search for your family doctor’s registration number on CPSO’s website (data)\nHow to enter drug discount cards (Kroll)\nExplanation of plans/insurance & How to Enter Patient’s insurance information(data)\nAdjudication issues and Intervention codes (data)\nDrug search & Generic equivalents (data)\nHow to enter drug mixtures into the patient profiles (Data)\nHow to Enter a new Rx (data)\nHow to Scan Rx’s and hard copies (data)\nRefill, Inactivate, Reactivate, Cancel, Modify or Reprint a Rx (data)\nHow to Fax for Rx refill or LU codes (data)\nReceiving & Entering a Rx Transfer from another Pharmacy (data)\nTransferring Rx from your Pharmacy to another Pharmacy (data)\nSet up patients for blister packs (data)\n\nCourse Fee $190 +tax\nCourse can enroll by the  link below\n\nhttps://www.pharmacyprep.com/store/books/pharmacy-software-training/\n\nShould you need more details plz let us know\n\nregards\n--\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "PEBC Evaluating Exam Prep course details",
+    "body": "Welcome to pharmacy prep; Now we are enrolling in prep classes as soon as you enroll, we provide you with books and a study plan so you can begin your preparations.\n\nNow prep course and books updated with new blueprint 2025.\n\nHome Study Plus Online\nWe are pleased to inform you that; we have been offering highly structured study material for over 24 years and trained nearly 10,000 pharmacy students for licensing exam preparations. Pharmacy Prep Online Plus Home Study helps you to get real results. Now along with home study books, you will also get online access to class lectures highlighting key points in every chapter (text-based). Question Bank, and MOCK Exams through our website.\n\nThe home study course package includes\n         LIVE ONLINE CLASSES: 2 days/week till the exam  and also access to the weekly recorded lecture\n         BOOKS updated to new syllabus (blueprint): EVALUATING EXAM REVIEW BOOK 2025.  Total 4 Hard copy Books covering 100% of the new PEBC syllabus (3 books are Questions and Answers Books\n         Must pass QBank: Practice Q&A for each chapter with solution strategies\n         COMPUTER-BASED TESTs; practice like the real exam.  Along with the top 25 mock exams\n\nCLASSES SCHEDULE\n\nLive Lecture SCHEDULE: (each group is taught twice a week)\nGroup 1: (ONLINE and In-person)\nSaturday 10:00 am-2:00 pm and Sunday 10:00 am-2:00 pm\n\nGroup 2: (ONLINE in-person)\nTuesday 4:00 pm-8:00 pm AND Wednesday 4:00 pm-8:00 pm\n\nOnce you sign up and pay the fees, the package (the books) will be mailed to you by expedited post and a tracking number will be emailed to you for tracking it. The professors are available to help and guide you during the course of your preparation. You can anytime correspond by email or phone.\n\nThe course fee $1190 + tax + shipping all hard copy books will mail to your address alternatively digital only course fee $990 +tax.\n\nEnroll here \nhttps://www.pharmacyprep.com/store/category/pebc-evaluating-exam-courses-books/evaluating-exam-home-study/\n\nWe hope the information is sufficient to answer all your questions, if you still have any concerns, please do not hesitate to email or Whatsup at 647.221.0457 or 416-223-7737.\n\nThank you once again and look forward to hearing from you.\nRegards,\n--\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled Evaluating exam home study course",
+    "body": "Welcome. Enrolled you in the pharmacy prep evaluating exam online prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE/ & RECORDED LECTURES, Question Bank, MOCK EXAMS AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\nLogin:\npassword:\nYou can log in to eprepstation. On the online portal, the eprepstation home page. From the main bar, select the registered courses. Click the Evaluating Exam Prep course.\nIf you need help making your study plan, we can set an online meeting to walk you through it so you can begin preparing.\nThe evaluation exam home page. Click on each section and chapter, and each chapter has lecture notes, Q&A, tips and recorded videos. Additionally, Mock exams.The computer-based tests on the left main bar\n\nThe evaluation exam course has three sections of the syllabus below, and can be selected from the cover page of the sections.\n  Pharmaceutical Science\n  Social Behavioural, Administrative Sciences\n  Pharmacy practice\n\nCan select the MOCK exams section to practice simulated Computer-based test mock exams.\n\nDigital Evaluating review books and clinical pharmacology books.\n\nOnline classes are on Saturday and Sunday, 10 am to 2 pm (Toronto time)\n\nWe are mailing books to your address\n\nShould you need further assistance, please do not hesitate to contact us.\n\nregards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Pharmacy prep Course Renewal",
+    "body": "Welcome to pharmacy prep\nThe Pharmacy prep course and online account access can be extended for a year with an extension fee $190+tax=$214.70. Throughout the year, you will be able to get new mock tests, class notes, and recorded videos and be able to join the live online interactive lectures. To pay for the online access, please send an e-transfer. Please email your e-transfer to \"success@pharmacyprep.com\" and please email us the password created for the e-transfer.\nPlease create e-Transfer\nSecurity Answer as “success”\nWe hope the information is sufficient to answer all your questions, if you still have any questions, please do not hesitate to e-mail of CALL/TEXT/SMS us at 416-223-7737 / 647.221.0457\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  },
+  {
+    "title": "Welcome. Enrolled Pharmacy tech MCQ prep course",
+    "body": "Dear Manoj\nWelcome. We have enrolled you in the Pharmacy prep tech qualifying MCQ  prep course. Please find below the login for an online exam prep station that enables access to STUDY PLAN, LIVE LECTURES, QBANK, MOCK EXAMS, COMPUTER-BASED TESTS, AND DIGITAL BOOKS.\n\nPlease find online access at www.pharmacyprep.com\n\nUser Name:\nPassword:\n\nTo begin preparing, select registered courses and select tech-qualifying MCQ prep course.\n\nPlease click LIVE LECTURE LINK TO JOIN online lectures on\n\nMCQ classes on Live Lecture Start Date: June 21 2025: Saturdays 4pm to 8pm\n\nWe are mailing books to your address.\n\nWe can set up online meeting to walk you through prep course and give you a study plan. Please let us know if you have any questions.\n\nRegards\n\nPharmacy Prep\nPhone:416-223-PREP(7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+  }
+]
 
 
-def _final_direct_request_present(text: str) -> bool:
-    lowered = (text or "").lower()
-    request_terms = [
-        "?", "can you", "could you", "would you", "can i", "could i", "do you",
-        "should i", "please", "please send", "please provide", "please confirm",
-        "please advise", "please let me know", "let me know", "i need", "need help",
-        "i would like", "i want", "how do i", "how can i", "when will", "where is",
-        "what is", "what's", "i have not received", "not received", "still waiting",
-        "checking in", "follow up", "follow-up", "send me", "share", "provide",
-        "confirm", "clarify", "advise", "available", "availability", "schedule",
-        "meeting", "call", "issue", "problem", "unable to", "can't", "cannot",
-        "invoice", "receipt", "refund", "order number", "login", "access",
-        "password", "extension", "renewal", "enroll", "enrol",
-    ]
-    return any(term in lowered for term in request_terms)
+def _final_lower_thread_text(thread: Dict, connected_email: str = "") -> str:
+    try:
+        return combined_thread_text(thread).lower()
+    except Exception:
+        latest = latest_inbound_email_for_dashboard(thread, connected_email)
+        return f"{latest.get('subject','')}\n{latest.get('body','')}".lower()
 
 
-def _final_human_sender(sender: str) -> bool:
-    sender = (sender or "").lower().strip()
-    if not sender or "@" not in sender:
-        return False
-    blocked = [
-        "noreply", "no-reply", "donotreply", "mailer-daemon", "postmaster",
-        "wordpress", "woocommerce", "notifications@", "notification@", "marketing@",
-        "security@", "billing@", "newsletter", "digest", "docusign", "adobesign",
-    ]
-    return not any(term in sender for term in blocked)
-
-
-def _final_hard_junk_reason(thread: Dict, connected_email: str) -> str:
+def _final_is_pharmacyprep_related_thread(thread: Dict, connected_email: str = "") -> bool:
     latest = latest_inbound_email_for_dashboard(thread, connected_email)
     sender = parseaddr(latest.get("from", ""))[1].lower().strip()
-    subject = latest.get("subject", "") or ""
-    body = clean_preview_text(latest.get("body", ""), 9000)
-    text = f"{subject}\n{body}".lower()
-    has_request = _final_direct_request_present(text)
-
-    # Keep renewal requests safe from junk filters.
-    if _renewal_subject_matches(subject, body) if "_renewal_subject_matches" in globals() else False:
-        return ""
-
-    hard_noise = [
-        "unsubscribe", "manage your preferences", "view this email in your browser",
-        "sale ends", "limited time", "special offer", "promotion", "newsletter",
-        "please moderate", "comment awaiting moderation", "new question submitted",
-        "security alert", "verification code", "password reset", "delivery status notification",
-        "undeliverable", "mail delivery", "new user registration", "do not reply to this email",
-        "order has shipped", "has shipped", "has been shipped", "out for delivery", "delivered",
-        "tracking number", "shipment", "shipping confirmation", "payment received",
-        "e-transfer received", "etransfer received", "receipt for your payment", "charge receipt",
-        "invoice paid", "thank you for signing the document", "document has been signed",
-        "signature completed", "signed successfully", "adobe sign", "docusign",
+    text = _final_lower_thread_text(thread, connected_email)
+    strong_terms = [
+        "pharmacy prep", "pharmacyprep", "eprepstation", "success@pharmacyprep.com",
+        "pebc", "opra", "fpgee", "naplex", "osce", "ospe", "qbank", "mock exam",
+        "mock exams", "qualifying exam", "evaluating exam", "mcq", "pharmacist", "pharmacy technician",
+        "technician mcq", "technician ospe", "pharmacy exam", "prep course", "home study",
+        "live lecture", "recorded lecture", "study plan", "course access", "course login",
+        "online exam prep station", "exam prep station", "registered courses", "login details",
     ]
-    if any(term in text for term in hard_noise) and not has_request:
-        return "automated/status/marketing notice"
+    if any(term in text for term in strong_terms):
+        return True
+    if any(domain in sender for domain in ["pharmacyprep.com", "eprepstation.com"]):
+        return True
+    course_context = ["course", "class", "student", "exam", "prep", "lecture", "recording", "notes", "books", "book", "enroll", "enrol", "registration"]
+    support_context = ["login", "access", "password", "extension", "renewal", "schedule", "qbank", "mock"]
+    return any(a in text for a in course_context) and any(b in text for b in support_context)
 
-    # Building/property notices are usually FYI, unless the latest email asks Misbah directly.
-    property_notice_terms = [
-        "hi everyone", "dear residents", "dear tenant", "dear tenants", "master key",
-        "unit door", "contractor", "management office", "building management",
-        "property management", "security staff", "concierge", "maintenance notice",
-    ]
-    if sum(1 for term in property_notice_terms if term in text) >= 2 and not has_request:
-        return "property/FYI notice"
 
-    automated_sender_terms = [
-        "noreply", "no-reply", "donotreply", "mailer-daemon", "postmaster",
-        "wordpress", "woocommerce", "marketing@", "newsletter", "digest",
-    ]
-    if any(term in sender for term in automated_sender_terms) and not has_request:
+def dashboard_category_for_thread(thread: Dict, connected_email: str) -> str:
+    return "work" if _final_is_pharmacyprep_related_thread(thread, connected_email) else "personal"
+
+
+def category_for_thread_strict(thread: Dict, connected_email: str) -> str:
+    return dashboard_category_for_thread(thread, connected_email)
+
+
+def _final_is_known_noise(thread: Dict, connected_email: str) -> str:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    sender = parseaddr(latest.get("from", ""))[1].lower().strip()
+    subject = (latest.get("subject", "") or "").lower()
+    body = clean_preview_text(latest.get("body", ""), 7000).lower()
+    text = f"{subject}\n{body}"
+    has_direct_request = any(term in text for term in [
+        "?", "can you", "could you", "would you", "please send", "please provide", "please confirm",
+        "i need", "need help", "i would like", "how do i", "when will", "where is", "what is",
+        "let me know", "follow up", "checking in", "not received", "still waiting", "unable to",
+        "can't", "cannot", "issue", "problem", "refund", "order number"
+    ])
+    status_terms = ["has shipped", "on the way", "out for delivery", "delivered", "tracking number", "shipment", "shipping confirmation", "payment received", "e-transfer received", "etransfer received", "interac e-transfer", "receipt for your payment", "charge receipt", "invoice paid", "successful payment", "order confirmation", "your order is confirmed"]
+    if any(term in text for term in status_terms) and not has_direct_request:
+        return "status/payment/shipping confirmation"
+    fyi_terms = ["for your information", "fyi", "no action required", "no need to reply", "please be advised", "notice to residents", "building notice", "master key", "unit door", "contractor requires access", "thank you for signing", "document has been signed", "completed document", "signed document"]
+    if any(term in text for term in fyi_terms) and not has_direct_request:
+        return "FYI/confirmation"
+    marketing_terms = ["unsubscribe", "manage your preferences", "view this email in your browser", "newsletter", "promotion", "limited time", "sale ends", "special offer", "digest"]
+    if any(term in text for term in marketing_terms) and not has_direct_request:
+        return "marketing/newsletter"
+    system_terms = ["please moderate", "comment awaiting moderation", "new question submitted", "security alert", "verification code", "password reset", "delivery status notification", "undeliverable", "mail delivery", "this is an automated message", "do not reply to this email"]
+    if any(term in text for term in system_terms) and not has_direct_request:
+        return "system notification"
+    no_reply_senders = ["mailer-daemon", "postmaster", "marketing@", "newsletter", "security@"]
+    if any(term in sender for term in no_reply_senders) and not has_direct_request:
         return "automated sender"
     return ""
 
 
-# Override the older automation filter so personal human threads are not lost before AI screening.
-def is_obvious_automated_email(thread: Dict, connected_email: str) -> bool:
-    return bool(_final_hard_junk_reason(thread, connected_email))
-
-
-# Wider search: include inbox + all-mail candidates and do not exclude Social, because some personal
-# replies can get categorized oddly by Gmail. Promotions are still mostly avoided.
-def _email_scan_queries(date_clause: str, connected_email: str) -> List[str]:
-    base = f'{date_clause} -in:spam -in:trash'
-    if connected_email:
-        base = f'{base} -from:{connected_email}'
-    return [
-        f'{base} in:inbox',
-        f'{base} in:inbox ("?" OR please OR "can you" OR "could you" OR "would you" OR "let me know")',
-        f'{base} in:inbox ("not received" OR "still waiting" OR "checking in" OR "follow up" OR "send me" OR "please confirm")',
-        f'{base} in:inbox (meeting OR call OR schedule OR appointment OR availability OR available OR question OR help)',
-        f'{base} in:inbox (login OR access OR account OR invoice OR payment OR refund OR receipt OR extension OR renewal OR registration)',
-        f'{base} in:inbox (PEBC OR exam OR announcement OR course OR class OR notes OR recording OR book OR materials)',
-        f'{base} -category:promotions ("?" OR please OR "can you" OR "could you" OR "would you" OR "let me know")',
-        f'{base} -category:promotions (meeting OR call OR schedule OR appointment OR availability OR available OR question OR help)',
-        f'{base} -category:promotions (login OR access OR invoice OR payment OR refund OR receipt OR extension OR renewal)',
-        f'{base} -category:promotions (PEBC OR exam OR course OR class OR notes OR recording OR book OR materials)',
-        f'{base} in:anywhere ("not received" OR "still waiting" OR "checking in" OR "follow up" OR "send me" OR "please confirm")',
-        f'{base} in:anywhere ("can you" OR "could you" OR "would you" OR "I need" OR "I would like" OR "let me know")',
-    ]
-
-
-def _strong_request_score(thread: Dict, connected_email: str) -> int:
+def _final_request_score(thread: Dict, connected_email: str) -> int:
     latest = latest_inbound_email_for_dashboard(thread, connected_email)
     sender = parseaddr(latest.get("from", ""))[1].lower().strip()
-    subject = latest.get("subject", "") or ""
-    body = clean_preview_text(latest.get("body", ""), 9000)
-    text = f"{subject}\n{body}".lower()
+    subject = (latest.get("subject", "") or "").lower()
+    body = clean_preview_text(latest.get("body", ""), 9000).lower()
+    text = f"{subject}\n{body}"
     score = 0
-    if _final_direct_request_present(text):
-        score += 5
+    direct = ["?", "can you", "could you", "would you", "can i", "could i", "do you", "should i", "please", "i need", "need help", "i would like", "i want", "how do i", "how can i", "when will", "where is", "what is", "what's", "let me know", "advise", "clarify", "confirm", "question", "help", "send me", "share", "provide", "update me", "follow up", "follow-up", "checking in", "not received", "still waiting", "missing", "issue", "problem", "unable to", "can't", "cannot", "available", "availability", "request"]
+    if any(term in text for term in direct):
+        score += 4
     if "?" in text:
         score += 3
-    if _final_human_sender(sender):
-        score += 2
     if len(thread.get("emails", [])) >= 2:
         score += 2
-    if len(body.split()) >= 6:
+    if len(body.split()) >= 5:
         score += 1
     if len(body.split()) >= 18:
         score += 1
-    important_context = [
-        "pharmacy", "prep", "pebc", "exam", "course", "class", "student", "login", "access",
-        "order", "invoice", "payment", "refund", "receipt", "extension", "renewal", "book",
-        "materials", "notes", "recording", "meeting", "call", "schedule", "appointment",
-        "available", "availability", "personal", "family", "friend", "doctor", "dentist",
-        "lawyer", "bank", "school", "university", "application", "document", "form",
-    ]
-    if any(term in text for term in important_context):
+    if sender and not any(x in sender for x in ["noreply", "no-reply", "donotreply", "mailer-daemon", "postmaster", "wordpress", "woocommerce", "marketing@", "newsletter"]):
         score += 2
-    if _final_hard_junk_reason(thread, connected_email):
-        score -= 8
+    if _final_is_pharmacyprep_related_thread(thread, connected_email):
+        score += 2
     return score
 
 
-# Wider pre-screen: let AI see more real human personal + threaded replies.
 def should_consider_thread_for_dashboard(thread: Dict, connected_email: str) -> bool:
     if not thread.get("emails"):
         return False
@@ -4597,443 +4721,413 @@ def should_consider_thread_for_dashboard(thread: Dict, connected_email: str) -> 
         return False
     if get_best_order_email_text(thread):
         return False
-    if _final_hard_junk_reason(thread, connected_email):
+    if _final_is_known_noise(thread, connected_email):
         return False
-
     latest = latest_inbound_email_for_dashboard(thread, connected_email)
     sender = parseaddr(latest.get("from", ""))[1].lower().strip()
     body = clean_preview_text(latest.get("body", ""), 9000)
-    text = f"{latest.get('subject','')}\n{body}"
-    score = _strong_request_score(thread, connected_email)
-
-    if score >= 4:
+    human_sender = bool(sender) and not any(blocked in sender for blocked in ["noreply", "no-reply", "donotreply", "mailer-daemon", "postmaster", "wordpress", "woocommerce", "notifications@", "marketing@", "newsletter"])
+    if _final_request_score(thread, connected_email) >= 4:
         return True
-    # Short replies in an existing conversation often need a new response even without obvious keywords.
-    if _final_human_sender(sender) and len(thread.get("emails", [])) >= 2 and len(body.split()) >= 2:
+    if human_sender and len(thread.get("emails", [])) >= 2 and len(body.split()) >= 2:
         return True
-    # New personal emails with a real sender and a little substance should at least be AI-screened.
-    if _final_human_sender(sender) and len(body.split()) >= 8 and not _final_hard_junk_reason(thread, connected_email):
+    if human_sender and len(body.split()) >= 10:
         return True
     return False
 
 
-def analyze_dashboard_thread_with_ai(thread: Dict, connected_email: str, extra_context: str = "") -> Optional[Dict]:
-    latest = latest_inbound_email_for_dashboard(thread, connected_email)
-    if not latest:
-        return None
-    _, sender_email = parseaddr(latest.get("from", ""))
-    display_name = sender_display_name(latest.get("from", ""), sender_email)
-    latest_body = compact_ai_context(latest.get("body", ""), 7000)
-    thread_text = compact_ai_context(format_thread_for_ai(thread), 12000)
-    hard_junk = _final_hard_junk_reason(thread, connected_email)
-    category = category_for_thread_strict(thread, connected_email) if "category_for_thread_strict" in globals() else dashboard_category_for_thread(thread, connected_email)
-
-    prompt = f"""
-You are screening Gmail for a dashboard. Decide if the latest inbound email needs a visible reply suggestion.
-
-Be inclusive with real human emails. Include:
-- Pharmacy Prep/student/customer/vendor emails asking about courses, PEBC, login/access, payments, orders, renewals, books/materials, schedules, recordings, or support.
-- Personal emails where a real person asks a question, follows up, asks for help, asks for a decision, or sends a short reply in a thread that likely needs a response.
-- Existing threads where the latest inbound message is short but clearly continues the conversation.
-
-Exclude only obvious non-reply items: newsletters, promotions, receipts, shipping/payment status, FYI notices, document signing confirmations, automated alerts, or thank-you-only messages.
-
-Category must be exactly:
-- work: Pharmacy Prep / PEBC / course / student / customer / order / business support.
-- personal: actionable non-Pharmacy-Prep email.
-
-Return JSON only:
-{{
-  "include": true,
-  "category": "{category}",
-  "title": "4-9 word dashboard title",
-  "summary": "specific one-sentence summary mentioning {display_name} and what they need",
-  "reason": "why it needs a reply or why it is excluded",
-  "confidence": 0.0
-}}
-
-Pre-filter warning: {hard_junk or 'None'}
-Sender display name: {display_name}
-Sender email: {sender_email}
-Latest subject: {latest.get('subject', '')}
-Latest body:
-{latest_body}
-
-Current thread:
-{thread_text}
-"""
-    try:
-        response = client.responses.create(model=OPENAI_MODEL, input=prompt)
-        parsed = parse_ai_json(response.output_text.strip())
-        if not isinstance(parsed, dict):
-            return None
-        include = parsed.get("include", False)
-        if isinstance(include, str):
-            include = include.strip().lower() in ("true", "yes", "1", "include")
-        if hard_junk:
-            include = False
-        try:
-            confidence = float(parsed.get("confidence", 0.0))
-        except Exception:
-            confidence = 0.0
-        return {
-            "include": bool(include),
-            "category": category,
-            "title": str(parsed.get("title", "")).strip(),
-            "summary": str(parsed.get("summary", "")).strip(),
-            "reason": str(parsed.get("reason", "")).strip() or hard_junk,
-            "confidence": confidence,
-        }
-    except Exception:
-        return None
-
-
-def reply_needs_regeneration(reply_body: str, latest_body: str, category: str = "work") -> bool:
-    body = (reply_body or "").strip()
-    latest = clean_preview_text(latest_body or "", 5000).strip()
-    body_lower = body.lower()
-    min_words = 8 if category == "personal" else 20
-    if len(body.split()) < min_words:
-        return True
-    bad_fillers = [
-        "we received your message and will get back to you",
-        "we received your message",
-        "we will review your request and get back to you shortly",
-        "thank you for your email. we will review your request",
-        "we will check your enrollment and access details",
-        "then send the correct login or course-access instructions",
-        "please confirm the email address you used for registration",
-    ]
-    if any(phrase in body_lower for phrase in bad_fillers):
-        return True
-    if latest and body_lower.startswith(latest.lower()[:80]):
-        return True
-    if copied_sequence_found(body, latest, sequence_len=12):
-        return True
-    if category != "personal" and "pharmacy prep" not in body_lower:
-        return True
-    return False
-
-
-def fallback_reply_for_thread(thread: Dict, connected_email: str, category: str) -> Optional[Dict]:
-    # Only used when OpenAI fails to produce a reply. Keep it short and non-bogus.
+def _final_personal_fallback_reply(thread: Dict, connected_email: str, category: str) -> Dict:
     latest = latest_inbound_email_for_dashboard(thread, connected_email)
     _, to_email = parseaddr(latest.get("from", ""))
     display_name = sender_display_name(latest.get("from", ""), to_email)
-    greeting = display_name if display_name and display_name != "The sender" else "there"
+    greeting_name = display_name if display_name and display_name != "The sender" else "there"
     subject = (latest.get("subject", "") or "Your email").strip()
     if not subject.lower().startswith("re:"):
         subject = "Re: " + subject
-    if category == "personal":
-        body = f"""Hi {greeting},
+    if category == "work":
+        body = f"""Hello {greeting_name},
 
-Thanks for following up. I’ll take a look and get back to you shortly.
-
-Regards"""
-    else:
-        body = f"""Hello {greeting},
-
-Thank you for your message. We will review the details connected to this request and follow up with the correct information shortly.
+Thank you for your email. We will review this and reply with the correct details shortly.
 
 Regards
 Pharmacy Prep
 Phone: 416-223-PREP (7737)
 WhatsApp: 647-221-0457
 www.pharmacyprep.com"""
+    else:
+        body = f"""Hello {greeting_name},
+
+Thanks for your email. I will take a look and get back to you shortly.
+
+Regards"""
     return {"thread_id": thread.get("thread_id", ""), "mode": "thread_reply", "to": to_email, "subject": subject, "body": body}
 
 
+def _final_build_favorited_item(thread: Dict, connected_email: str, stored_item: Dict, gmail_starred: bool = False) -> Dict:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    category = dashboard_category_for_thread(thread, connected_email)
+    latest_inbound_id = latest_inbound_message_id(thread, connected_email)
+    latest_sort_ts = latest_inbound_sort_key(thread, connected_email)
+    sender_name = sender_display_name(latest.get("from", ""), parseaddr(latest.get("from", ""))[1])
+    subject = latest.get("subject", "") or stored_item.get("title", "Favorited email")
+    reason = stored_item.get("important_reason") or f"{sender_name} is favorited, so this thread stays on the dashboard."
+    reply = stored_item.get("reply") if stored_item.get("latest_inbound_id") == latest_inbound_id else None
+    if not reply and not latest_email_is_from_connected_account(thread, connected_email) and not _final_is_known_noise(thread, connected_email):
+        reply = _final_personal_fallback_reply(thread, connected_email, category)
+    return {**stored_item, "thread_id": thread.get("thread_id", ""), "category": category, "title": stored_item.get("title") or subject, "important_reason": reason, "status": "Needs Reply" if reply else (stored_item.get("status") or "Favorited"), "favorite": True, "gmail_starred": bool(gmail_starred or stored_item.get("gmail_starred")), "filtered_out": False, "ai_screened": bool(stored_item.get("ai_screened", False)), "screening_version": EMAIL_SCREENING_VERSION, "latest_inbound_id": latest_inbound_id, "sort_ts": latest_sort_ts or stored_item.get("sort_ts", ""), "original": {"from": latest.get("from", ""), "to": latest.get("to", ""), "date": latest.get("date", ""), "subject": latest.get("subject", ""), "body": clean_preview_text(latest.get("body", ""), 1800)}, "reply": reply}
+
+
+def build_general_email_item(service, thread: Dict, connected_email: str, personal_label_id: str, work_label_id: str, force_include: bool = False, gmail_starred: bool = False) -> Optional[Dict]:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    if not latest:
+        return None
+    thread_id = thread.get("thread_id", "")
+    thread_key = thread_action_key(thread, connected_email)
+    action = get_thread_action(thread_key)
+    stored_item = get_catalog_item("emails", thread_id)
+    latest_inbound_id = latest_inbound_message_id(thread, connected_email)
+    latest_sort_ts = latest_inbound_sort_key(thread, connected_email)
+    category = dashboard_category_for_thread(thread, connected_email)
+    favorite = bool(force_include or gmail_starred or stored_item.get("favorite") or stored_item.get("gmail_starred"))
+    if favorite:
+        item = _final_build_favorited_item(thread, connected_email, stored_item, gmail_starred=gmail_starred)
+        try:
+            apply_label_to_thread_messages(service, thread, personal_label_id if item.get("category") == "personal" else work_label_id)
+        except Exception:
+            pass
+        return item
+    if latest_email_is_from_connected_account(thread, connected_email):
+        if not stored_item:
+            return None
+        return {**stored_item, "thread_id": thread_id, "category": category, "status": "Already Replied", "reply": None, "reply_sent_at": stored_item.get("reply_sent_at") or datetime.now().isoformat(timespec="seconds"), "latest_inbound_id": latest_inbound_id, "sort_ts": latest_sort_ts or stored_item.get("sort_ts", ""), "screening_version": EMAIL_SCREENING_VERSION, "original": {"from": latest.get("from", ""), "to": latest.get("to", ""), "date": latest.get("date", ""), "subject": latest.get("subject", ""), "body": clean_preview_text(latest.get("body", ""), 1800)}}
+    if action.get("action_type") == "dismissed":
+        return {**stored_item, "thread_id": thread_id, "category": category, "status": "Suggestion Removed", "reply": None, "screening_version": EMAIL_SCREENING_VERSION}
+    if action.get("action_type") == "frontend_reply_sent":
+        return {**stored_item, "thread_id": thread_id, "category": category, "status": "Already Replied", "reply": None, "reply_sent_at": action.get("processed_at", ""), "latest_inbound_id": latest_inbound_id, "sort_ts": latest_sort_ts or stored_item.get("sort_ts", ""), "screening_version": EMAIL_SCREENING_VERSION}
+    noise = _final_is_known_noise(thread, connected_email)
+    if noise:
+        return {"thread_id": thread_id, "category": category, "title": latest.get("subject", "Filtered email"), "important_reason": noise, "status": "Filtered Out", "filtered_out": True, "ai_screened": False, "screening_version": EMAIL_SCREENING_VERSION, "latest_inbound_id": latest_inbound_id, "sort_ts": latest_sort_ts, "original": {"from": latest.get("from", ""), "to": latest.get("to", ""), "date": latest.get("date", ""), "subject": latest.get("subject", ""), "body": clean_preview_text(latest.get("body", ""), 1800)}, "reply": None}
+    candidate = should_consider_thread_for_dashboard(thread, connected_email)
+    if not candidate and not stored_item:
+        return None
+    screening = analyze_dashboard_thread_with_ai(thread, connected_email) if candidate else None
+    if screening and not screening.get("include") and not stored_item:
+        return {"thread_id": thread_id, "category": category, "title": latest.get("subject", "Filtered email"), "important_reason": screening.get("reason", "Not actionable"), "status": "Filtered Out", "filtered_out": True, "ai_screened": True, "screen_confidence": screening.get("confidence", 0), "screening_version": EMAIL_SCREENING_VERSION, "latest_inbound_id": latest_inbound_id, "sort_ts": latest_sort_ts, "original": {"from": latest.get("from", ""), "to": latest.get("to", ""), "date": latest.get("date", ""), "subject": latest.get("subject", ""), "body": clean_preview_text(latest.get("body", ""), 1800)}, "reply": None}
+    title = latest.get("subject", "") or stored_item.get("title") or "Email needs review"
+    if screening and screening.get("title") and 3 <= len(screening.get("title", "").split()) <= 12:
+        title = screening.get("title", "").strip()
+    important_reason = (screening or {}).get("summary", "").strip()
+    if summary_is_generic(important_reason):
+        important_reason = stored_item.get("important_reason") if stored_item.get("important_reason") and not summary_is_generic(stored_item.get("important_reason")) else build_important_reason(thread, connected_email)
+    try:
+        apply_label_to_thread_messages(service, thread, personal_label_id if category == "personal" else work_label_id)
+    except Exception:
+        pass
+    latest_clean_body = clean_preview_text(latest.get("body", ""), 6000)
+    cached_reply = stored_item.get("reply") if stored_item.get("latest_inbound_id") == latest_inbound_id else None
+    cached_ok = bool(cached_reply) and not reply_needs_regeneration(cached_reply.get("body", ""), latest_clean_body, category)
+    reply = cached_reply if cached_ok else None
+    if not reply:
+        try:
+            queries = heuristic_context_queries_for_thread(thread, connected_email)
+            extra_context = gather_context_from_gmail(service, queries, current_thread_id=thread_id, max_threads_per_query=4) if queries else ""
+            composed = compose_reply_with_ai(thread, connected_email, category, extra_context=extra_context)
+        except Exception:
+            composed = None
+        if composed:
+            if composed.get("summary") and not summary_is_generic(composed.get("summary", "")):
+                important_reason = composed.get("summary", "").strip()
+            if composed.get("title") and 3 <= len(composed.get("title", "").split()) <= 12:
+                title = composed.get("title", "").strip()
+            reply = {"thread_id": thread_id, "mode": "thread_reply", "to": parseaddr(latest.get("from", ""))[1].strip(), "subject": composed.get("subject", ""), "body": composed.get("body", "")}
+    if not reply:
+        reply = _final_personal_fallback_reply(thread, connected_email, category)
+    return {"thread_id": thread_id, "category": category, "title": title, "important_reason": important_reason, "status": "Needs Reply", "reply_sent_at": stored_item.get("reply_sent_at", ""), "latest_inbound_id": latest_inbound_id, "sort_ts": latest_sort_ts or stored_item.get("sort_ts", ""), "ai_screened": bool(screening) or candidate, "screen_confidence": (screening or {}).get("confidence", stored_item.get("screen_confidence", 0)), "screening_version": EMAIL_SCREENING_VERSION, "favorite": bool(stored_item.get("favorite", False)), "gmail_starred": bool(gmail_starred or stored_item.get("gmail_starred", False)), "filtered_out": False, "original": {"from": latest.get("from", ""), "to": latest.get("to", ""), "date": latest.get("date", ""), "subject": latest.get("subject", ""), "body": clean_preview_text(latest.get("body", ""), 1800)}, "reply": reply}
+
+
+def _final_start_for_scan(catalog: Dict, force_full: bool = False) -> datetime:
+    if force_full:
+        return SCAN_START_DT
+    meta = catalog.get("meta", {}) if isinstance(catalog.get("meta", {}), dict) else {}
+    raw = meta.get("last_successful_scan_at") or meta.get("last_scan_at") or ""
+    try:
+        if raw:
+            parsed = datetime.fromisoformat(raw[:19]) - timedelta(days=3)
+            return max(parsed, SCAN_START_DT)
+    except Exception:
+        pass
+    return SCAN_START_DT
+
+
+def _scan_after_clause_for_catalog(catalog: Dict, force_full: bool = False) -> Tuple[str, str]:
+    start_dt = _final_start_for_scan(catalog, force_full=force_full)
+    after_value = (start_dt - timedelta(days=1)).strftime("%Y/%m/%d")
+    return f"after:{after_value}", start_dt.isoformat(timespec="seconds")
+
+
+def _email_scan_queries(date_clause: str, connected_email: str) -> List[str]:
+    base = f'{date_clause} -in:spam -in:trash -category:promotions -category:social'
+    if connected_email:
+        base = f'{base} -from:{connected_email}'
+    return [
+        f'{base} is:starred', f'{base} in:inbox', f'{base}',
+        f'{base} ("?" OR "please" OR "can you" OR "could you" OR "would you" OR "I need" OR "let me know" OR "follow up")',
+        f'{base} ("not received" OR "still waiting" OR "checking in" OR "send me" OR "available" OR "availability")',
+        f'{base} (invoice OR receipt OR payment OR refund OR bank OR statement OR document OR appointment OR meeting)',
+        f'{base} (PEBC OR OPRA OR FPGEE OR NAPLEX OR OSCE OR OSPE OR QBank OR exam OR course OR class OR schedule OR notes OR recording OR login OR access OR renewal)',
+        f'{base} newer_than:30d',
+    ]
+
+
+def _final_strict_order_sent_check(service, customer_email: str, order_number: str) -> bool:
+    if not customer_email or not order_number or str(order_number).lower() == "unknown":
+        return False
+    queries = [f'in:sent newer_than:365d to:{customer_email} "order #{order_number}"', f'in:sent newer_than:365d to:{customer_email} "{order_number}" "Welcome to Pharmacy Prep"', f'in:sent newer_than:365d to:{customer_email} "{order_number}" (enrolled OR enrollment OR login OR access)']
+    for query in queries:
+        try:
+            if gmail_search_any(service, query, max_results=5):
+                return True
+        except Exception:
+            continue
+    return False
+
+was_order_message_already_sent = _final_strict_order_sent_check
+
+
+def perform_gmail_scan(force_full: bool = False) -> Dict:
+    service = get_gmail_service()
+    connected_email = get_connected_email(service)
+    personal_label_id = get_or_create_label(service, PERSONAL_LABEL)
+    work_label_id = get_or_create_label(service, WORK_LABEL)
+    catalog = get_dashboard_catalog()
+    catalog.setdefault("meta", {}); catalog.setdefault("orders", {}); catalog.setdefault("emails", {})
+    date_clause, scan_start_used = _scan_after_clause_for_catalog(catalog, force_full=force_full)
+    debug = _debug_counts_template() if "_debug_counts_template" in globals() else {"errors": []}
+    debug["scan_start"] = scan_start_used; debug["force_full"] = force_full
+    print(f"[scan] starting Gmail scan | force_full={force_full} | date_clause={date_clause}", flush=True)
+    order_thread_ids = _collect_thread_ids(service, _order_scan_queries(date_clause), per_query_limit=max(10, MAX_ORDER_THREADS_PER_SCAN // 4), total_limit=MAX_ORDER_THREADS_PER_SCAN)
+    starred_thread_ids = set(_collect_thread_ids(service, [f'after:{SCAN_START_GMAIL_AFTER} is:starred -in:spam -in:trash'], per_query_limit=100, total_limit=FAVORITE_SCAN_LIMIT))
+    email_thread_ids = _collect_thread_ids(service, _email_scan_queries(date_clause, connected_email), per_query_limit=max(40, MAX_EMAIL_THREADS_PER_SCAN // 6), total_limit=MAX_EMAIL_THREADS_PER_SCAN)
+    catalog_favorites = [tid for tid, item in catalog.get("emails", {}).items() if isinstance(item, dict) and item.get("favorite") and not str(tid).startswith("renewal_")]
+    ordered_email_ids = []
+    seen = set()
+    for tid in list(starred_thread_ids) + catalog_favorites + email_thread_ids:
+        if tid and tid not in seen:
+            seen.add(tid); ordered_email_ids.append(tid)
+    email_thread_ids = ordered_email_ids
+    debug["order_threads_found"] = len(order_thread_ids); debug["email_threads_found"] = len(email_thread_ids)
+    print(f"[scan] Gmail returned {len(order_thread_ids)} order thread(s), {len(email_thread_ids)} possible email/favorite thread(s), {len(starred_thread_ids)} starred", flush=True)
+    auto_orders_sent = 0; order_replies_waiting = 0; skipped_failed_orders = 0; processed_order_threads = set(); ai_screenings_used = 0
+    for thread_id in order_thread_ids:
+        try:
+            thread = read_thread(service, thread_id)
+            order_item = build_order_item(service, thread, connected_email)
+            if not order_item: continue
+            processed_order_threads.add(thread_id)
+            if order_item.get("order_number") == "Unknown": skipped_failed_orders += 1
+            order_item, did_send = _auto_send_order_if_safe(service, thread, connected_email, order_item)
+            if did_send: auto_orders_sent += 1
+            if order_item.get("reply"): order_replies_waiting += 1
+            _upsert_order_in_catalog(catalog, thread_id, order_item)
+        except GmailAuthRequired:
+            raise
+        except Exception as error:
+            debug["email_errors"] = debug.get("email_errors", 0) + 1; debug.setdefault("errors", []).append(f"order {thread_id}: {error}")
+    for thread_id in email_thread_ids:
+        if thread_id in processed_order_threads: continue
+        try:
+            thread = read_thread(service, thread_id)
+            debug["email_threads_read"] = debug.get("email_threads_read", 0) + 1
+            if not _thread_is_on_or_after_scan_start(thread, connected_email):
+                debug["email_skipped_old_date"] = debug.get("email_skipped_old_date", 0) + 1; continue
+            if get_best_order_email_text(thread):
+                order_item = build_order_item(service, thread, connected_email)
+                if order_item:
+                    order_item, did_send = _auto_send_order_if_safe(service, thread, connected_email, order_item)
+                    if did_send: auto_orders_sent += 1
+                    if order_item.get("reply"): order_replies_waiting += 1
+                    _upsert_order_in_catalog(catalog, thread_id, order_item)
+                continue
+            favorite = thread_id in starred_thread_ids or bool(catalog.get("emails", {}).get(thread_id, {}).get("favorite"))
+            item = build_general_email_item(service, thread, connected_email, personal_label_id, work_label_id, force_include=favorite, gmail_starred=thread_id in starred_thread_ids)
+            if item:
+                _upsert_email_in_catalog(catalog, thread_id, item)
+                if item.get("reply") and not item.get("filtered_out"): debug["email_ai_accepted"] = debug.get("email_ai_accepted", 0) + 1
+                elif item.get("filtered_out"): debug["email_ai_rejected"] = debug.get("email_ai_rejected", 0) + 1
+                if item.get("ai_screened"): ai_screenings_used += 1
+            else:
+                debug["email_skipped_prescreen"] = debug.get("email_skipped_prescreen", 0) + 1
+        except GmailAuthRequired:
+            raise
+        except Exception as error:
+            debug["email_errors"] = debug.get("email_errors", 0) + 1
+            if len(debug.get("errors", [])) < 20: debug.setdefault("errors", []).append(f"email {thread_id}: {error}")
+    try:
+        added = _scan_and_upsert_renewal_requests(service, catalog, connected_email) if "_scan_and_upsert_renewal_requests" in globals() else 0
+    except Exception as error:
+        added = 0; print(f"[renewal] skipped: {error}", flush=True)
+    now = datetime.now().isoformat(timespec="seconds")
+    catalog = get_dashboard_catalog()
+    catalog.setdefault("meta", {})
+    catalog["meta"] = {**catalog.get("meta", {}), "connected_email": connected_email, "last_successful_scan_at": now, "last_scan_start": scan_start_used, "scan_window": f"{SCAN_START_DISPLAY} onward", "scan_start_date": SCAN_START_DT.strftime("%Y-%m-%d"), "email_screening_version": EMAIL_SCREENING_VERSION, "last_briefing_date": datetime.now().strftime("%Y-%m-%d")}
+    save_dashboard_catalog(catalog)
+    if "_save_scan_debug" in globals():
+        try: _save_scan_debug(debug)
+        except Exception: pass
+    invalidate_dashboard_cache()
+    payload = build_dashboard_payload(force_refresh=True)
+    emails = payload.get("emails", []); orders = payload.get("orders", [])
+    suggested_replies = len([email for email in emails if email.get("reply")])
+    payload["scan_summary"] = {"scan_window": f"{SCAN_START_DISPLAY} onward", "scan_start": scan_start_used, "orders_checked": len(order_thread_ids), "emails_checked": len(email_thread_ids), "email_threads_read": debug.get("email_threads_read", 0), "emails_accepted": len([e for e in emails if e.get("reply") or e.get("favorite") or e.get("gmail_starred")]), "emails_rejected": debug.get("email_ai_rejected", 0) + debug.get("email_skipped_prescreen", 0) + debug.get("email_skipped_old_date", 0), "auto_orders_sent": auto_orders_sent, "order_replies_waiting": order_replies_waiting, "failed_orders_skipped": skipped_failed_orders, "suggested_replies": suggested_replies, "ai_screenings_used": ai_screenings_used, "renewal_added": added, "debug_file": str(SCAN_DEBUG_FILE) if "SCAN_DEBUG_FILE" in globals() else ""}
+    print(f"[scan] complete | read={payload['scan_summary']['email_threads_read']} | visible_emails={len(emails)} | suggested={suggested_replies} | personal={len([e for e in emails if e.get('category') == 'personal'])} | work={len([e for e in emails if e.get('category') == 'work'])}", flush=True)
+    return payload
+
+
+def _final_email_visible(item: Dict) -> bool:
+    if not _item_is_on_or_after_scan_start(item): return False
+    if item.get("favorite") or item.get("gmail_starred"):
+        return item.get("category") in ("work", "personal")
+    if item.get("filtered_out") or item.get("status") == "Filtered Out": return False
+    if item.get("category") not in ("work", "personal"): return False
+    if item.get("screening_version") != EMAIL_SCREENING_VERSION: return False
+    has_reply = bool(item.get("reply"))
+    # The older unimportant check was too broad for personal finance messages because words like
+    # "receipt" or "invoice" can be part of a real question. Only use it to hide non-reply items.
+    if _catalog_item_looks_unimportant(item) and not has_reply: return False
+    handled = item.get("status") in ("Already Replied", "Suggestion Removed") and bool(item.get("important_reason"))
+    return has_reply or handled
+
+_is_catalog_email_visible = _final_email_visible
+
+
+def _brief_sender_name(item: Dict) -> str:
+    original = item.get("original", {}) or {}
+    name, addr = parseaddr(original.get("from", ""))
+    clean = re.sub(r"[\"']", "", name or "").strip()
+    if clean and clean.lower() not in ("no reply", "noreply", "unknown"):
+        return clean.split()[0].title() if len(clean.split()) <= 3 else clean.title()
+    return infer_customer_name_from_email(addr) or "Someone"
+
+
+def _brief_topic(item: Dict) -> str:
+    text = _catalog_text(item)
+    checks = [(["renewal", "extension"], "renewals/extensions"), (["login", "access", "password"], "login/access"), (["schedule", "class", "lecture", "availability"], "classes or scheduling"), (["book", "materials", "notes"], "books/materials"), (["invoice", "payment", "receipt", "refund", "bank", "statement"], "payments/finances"), (["order number", "order #"], "order details"), (["exam", "pebc", "opra", "osce", "ospe", "mcq"], "exam/course questions"), (["meeting", "call", "appointment"], "meetings/appointments")]
+    for words, label in checks:
+        if any(w in text for w in words): return label
+    subj = (item.get("original", {}) or {}).get("subject", "") or item.get("title", "message")
+    return re.sub(r"^(re|fw|fwd):\s*", "", subj, flags=re.IGNORECASE).strip()[:60] or "messages"
+
+
 def build_daily_briefing(connected_email: str, orders: List[Dict], emails: List[Dict]) -> str:
-    now = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+    now_dt = datetime.now(); now = now_dt.strftime("%A, %B %d, %Y at %I:%M %p")
     orders = [order for order in orders if _is_catalog_order_visible(order)]
     emails = [email for email in emails if _is_catalog_email_visible(email)]
-    orders.sort(key=_catalog_sort_key, reverse=True)
-    emails.sort(key=_catalog_sort_key, reverse=True)
-    work_emails = [email for email in emails if email.get("category") == "work"]
-    personal_emails = [email for email in emails if email.get("category") == "personal"]
-    pending = [email for email in emails if email.get("reply")]
-    waiting_orders = [order for order in orders if order.get("reply")]
-    handled_orders = [order for order in orders if not order.get("reply")]
-
-    def _name(item: Dict) -> str:
-        original = item.get("original", {}) or {}
-        raw = original.get("from", "") or item.get("title", "")
-        name, email = parseaddr(raw)
-        name = re.sub(r"[\"']", "", name or "").strip()
-        if name and name.lower() not in ("unknown", "unknown sender", "no reply", "noreply"):
-            return name.title() if name.isupper() else name
-        return infer_customer_name_from_email(email) or "someone"
-
-    def _topic(item: Dict) -> str:
-        text = "\n".join([
-            str(item.get("title", "")),
-            str(item.get("important_reason", "")),
-            str((item.get("original", {}) or {}).get("subject", "")),
-            str((item.get("original", {}) or {}).get("body", "")),
-        ]).lower()
-        checks = [
-            (("renewal", "extension", "expired"), "renewals/extensions"),
-            (("login", "access", "password", "account"), "login/access"),
-            (("book", "manual", "materials", "notes"), "books/materials"),
-            (("schedule", "class", "appointment", "available", "availability", "meeting", "call"), "scheduling"),
-            (("payment", "invoice", "receipt", "refund", "e-transfer", "etransfer"), "payments/invoices"),
-            (("pebc", "exam", "osce", "mcq", "evaluating", "qualifying"), "exam/course questions"),
-            (("order", "order number"), "orders"),
-        ]
-        for words, label in checks:
-            if any(word in text for word in words):
-                return label
-        return "follow-ups"
-
-    topic_counts: Dict[str, int] = {}
-    for item in pending:
-        topic_counts[_topic(item)] = topic_counts.get(_topic(item), 0) + 1
-    theme_text = ", ".join(f"{count} {topic}" for topic, count in sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)[:4])
+    orders.sort(key=_catalog_sort_key, reverse=True); emails.sort(key=_catalog_sort_key, reverse=True)
+    seen_orders = set(); deduped_orders = []
+    for order in orders:
+        key = (str(order.get("order_number", "")).lower(), str(order.get("customer_email", "")).lower())
+        if key in seen_orders: continue
+        seen_orders.add(key); deduped_orders.append(order)
+    work = [e for e in emails if e.get("category") == "work"]; personal = [e for e in emails if e.get("category") == "personal"]
+    waiting_orders = [o for o in deduped_orders if o.get("reply")]; handled_orders = [o for o in deduped_orders if not o.get("reply")]
     names = []
-    for item in pending[:6]:
-        n = _name(item)
-        if n not in names:
-            names.append(n)
-    names_text = ", ".join(names[:5])
-
-    if pending:
-        paragraph = f"Today there are {len(pending)} email thread(s) waiting for a reply: {theme_text or 'mixed follow-ups'}. Start with {names_text or 'the newest messages'} so the inbox does not feel scattered."
-    else:
-        paragraph = "You are mostly caught up right now. No visible email threads currently have a suggested reply waiting."
-    if waiting_orders:
-        paragraph += f" There are also {len(waiting_orders)} order welcome message(s) waiting to send."
-    elif handled_orders:
-        paragraph += f" Orders look handled for now, with {len(handled_orders)} visible order record(s) stored."
-
-    lines = [
-        "# AI Summary",
-        "",
-        f"Generated: {now}",
-        f"Connected Gmail: {connected_email}",
-        f"Scan window: {SCAN_START_DISPLAY} onward",
-        "",
-        "General Briefing",
-        paragraph,
-        "",
-        "Quick Counts",
-        f"- Work emails waiting: {len([email for email in work_emails if email.get('reply')])}",
-        f"- Personal emails waiting: {len([email for email in personal_emails if email.get('reply')])}",
-        f"- Order messages waiting: {len(waiting_orders)}",
-        "",
-        "Orders",
-    ]
-    if orders:
-        for order in orders[:12]:
-            status = "Waiting to send" if order.get("reply") else order.get("status", "Handled")
-            lines.append(f"- Order #{order.get('order_number', 'Unknown')} for {order.get('customer_name', 'Customer')} — {status}")
-    else:
-        lines.append(f"- No orders from {SCAN_START_DISPLAY} onward are stored yet.")
-
-    lines.extend([
-        "",
-        "Executive Overview",
-        f"- Visible actionable emails: {len(work_emails)} work and {len(personal_emails)} personal.",
-        f"- Visible orders: {len(orders)} total, {len(waiting_orders)} waiting, {len(handled_orders)} handled.",
-        "- Use Full Scan when you want to recover older missed threads; Refresh will stay incremental after that.",
-    ])
+    for item in emails:
+        nm = _brief_sender_name(item)
+        if nm and nm not in names and nm.lower() not in ("no", "reply", "someone"):
+            names.append(nm)
+        if len(names) >= 4: break
+    topic_counts = {}
+    for e in emails:
+        topic = _brief_topic(e); topic_counts[topic] = topic_counts.get(topic, 0) + 1
+    top_topics = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)[:4]
+    topic_phrase = ", ".join([f"{count} {topic}" for topic, count in top_topics]) if top_topics else "no major email themes"
+    names_phrase = ", ".join(names) if names else "the newest visible threads"
+    newest_order = deduped_orders[0] if deduped_orders else {}
+    greeting = "Good morning" if now_dt.hour < 12 else "Good afternoon" if now_dt.hour < 17 else "Good evening"
+    order_phrase = ("mostly handled" if not waiting_orders else f"waiting on approval for {len(waiting_orders)} item(s)")
+    newest_order_phrase = (f"the newest visible order is #{newest_order.get('order_number', 'Unknown')} for {newest_order.get('customer_name', 'Customer')}." if newest_order else "no June-forward orders are visible yet.")
+    paragraph = f"{greeting} — here’s the inbox picture. There are {len(work)} Pharmacy Prep/work thread(s) and {len(personal)} personal thread(s) needing attention, with the main themes being {topic_phrase}. Start with {names_phrase}, since those are among the newest visible conversations. Orders are {order_phrase}; {newest_order_phrase} Favorited or starred threads stay on the dashboard even when they would normally be filtered, and this briefing regenerates whenever the dashboard refreshes."
+    lines = ["# AI Summary", "", f"Generated: {now}", f"Connected Gmail: {connected_email}", f"Scan window: {SCAN_START_DISPLAY} onward", "", "Daily Briefing", paragraph, "", "Snapshot", f"- Work: {len(work)}", f"- Personal: {len(personal)}", f"- Orders waiting: {len(waiting_orders)}", f"- Orders handled: {len(handled_orders)}"]
     briefing = "\n".join(lines)
     BRIEFING_FILE.write_text(briefing, encoding="utf-8")
     return briefing
 
 
-def _extract_template_body_from_message(message: Dict) -> str:
+def build_dashboard_payload(force_refresh: bool = False) -> Dict:
+    catalog = get_dashboard_catalog(); catalog.setdefault("meta", {}); catalog.setdefault("orders", {}); catalog.setdefault("emails", {})
     try:
-        return clean_preview_text(extract_body_from_payload(message.get("payload", {})), 20000)
-    except Exception:
-        return ""
+        if "_normalize_catalog_renewals" in globals():
+            catalog, changed = _normalize_catalog_renewals(catalog)
+            if changed: save_dashboard_catalog(catalog)
+    except Exception: pass
+    connected_email = catalog.get("meta", {}).get("connected_email") or DEFAULT_CONNECTED_EMAIL
+    orders = [item for item in catalog.get("orders", {}).values() if _is_catalog_order_visible(item)]
+    emails = []
+    for item in catalog.get("emails", {}).values():
+        if not isinstance(item, dict): continue
+        if item.get("is_renewal_request") and "_normalize_renewal_item_for_display" in globals():
+            try: item = _normalize_renewal_item_for_display(item)
+            except Exception: pass
+        if item.get("category") not in ("work", "personal"):
+            item["category"] = "work" if item.get("is_renewal_request") else item.get("category", "personal")
+        if _is_catalog_email_visible(item): emails.append(item)
+    orders.sort(key=_catalog_sort_key, reverse=True); emails.sort(key=_catalog_sort_key, reverse=True)
+    briefing = build_daily_briefing(connected_email, orders, emails)
+    pending_reply_ids = [item["thread_id"] for item in emails if item.get("reply")] + [item["thread_id"] for item in orders if item.get("reply")]
+    return {"ok": True, "connected_email": connected_email, "orders": orders, "emails": emails, "pending_replies": pending_reply_ids, "briefing": briefing, "templates_count": len(GMAIL_TEMPLATES), "automation_settings": {**get_automation_settings(), "last_auto_scan_at": catalog.get("meta", {}).get("last_successful_scan_at", "")}, "stats": {"orders_replied": len([order for order in orders if not order.get("reply")]), "pending_replies": len(pending_reply_ids), "work_emails": len([email for email in emails if email.get("category") == "work"]), "personal_emails": len([email for email in emails if email.get("category") == "personal"])}}
 
 
-def _template_preview_name(subject: str, body: str, fallback: str) -> str:
-    subject = re.sub(r"\s+", " ", (subject or "").strip())
-    if subject:
-        return subject[:90]
-    first_line = next((line.strip() for line in (body or "").splitlines() if line.strip()), "")
-    return (first_line[:90] or fallback)
+def api_gmail_templates_final():
+    return jsonify({"ok": True, "templates": GMAIL_TEMPLATES})
+try:
+    app.add_url_rule("/api/gmail-templates", "api_gmail_templates_final", api_gmail_templates_final, methods=["GET"])
+except Exception:
+    app.view_functions["api_gmail_templates_final"] = api_gmail_templates_final
 
 
-def _load_local_template_cache() -> List[Dict]:
-    data = load_json_file(GMAIL_TEMPLATE_CACHE_FILE, [])
-    output = []
-    if isinstance(data, dict):
-        data = data.get("templates", [])
-    if isinstance(data, list):
-        for idx, item in enumerate(data):
-            if not isinstance(item, dict):
-                continue
-            body = str(item.get("body") or item.get("text") or "").strip()
-            subject = str(item.get("subject") or item.get("name") or "").strip()
-            if not body and not subject:
-                continue
-            output.append({
-                "id": f"local_{idx}",
-                "name": str(item.get("name") or _template_preview_name(subject, body, f"Template {idx + 1}")),
-                "subject": subject,
-                "body": body,
-                "source": "Local template cache",
-            })
-    return output
-
-
-@app.route("/api/gmail-templates")
-def api_gmail_templates():
+def api_toggle_favorite_final(thread_id: str):
     try:
-        service = get_gmail_service()
-        templates = []
-        seen = set()
-
-        def add_template(template: Dict):
-            subject = (template.get("subject") or "").strip()
-            body = (template.get("body") or "").strip()
-            if not body and not subject:
-                return
-            key = hashlib.sha1(f"{subject}\n{body}".encode("utf-8", errors="ignore")).hexdigest()
-            if key in seen:
-                return
-            seen.add(key)
-            template["id"] = template.get("id") or key[:16]
-            template["name"] = template.get("name") or _template_preview_name(subject, body, "Template")
-            templates.append(template)
-
-        # Gmail API exposes drafts reliably; many teams keep reusable Gmail templates as drafts.
-        try:
-            page_token = None
-            while len(templates) < 200:
-                result = service.users().drafts().list(userId="me", maxResults=100, pageToken=page_token).execute()
-                for draft_ref in result.get("drafts", []):
-                    draft_id = draft_ref.get("id")
-                    if not draft_id:
-                        continue
-                    draft = service.users().drafts().get(userId="me", id=draft_id, format="full").execute()
-                    message = draft.get("message", {})
-                    headers = message.get("payload", {}).get("headers", [])
-                    subject = get_header(headers, "Subject") or ""
-                    body = _extract_template_body_from_message(message)
-                    add_template({
-                        "id": f"draft_{draft_id}",
-                        "name": _template_preview_name(subject, body, f"Draft template {len(templates) + 1}"),
-                        "subject": subject,
-                        "body": body,
-                        "source": "Gmail drafts/templates",
-                    })
-                page_token = result.get("nextPageToken")
-                if not page_token:
-                    break
-        except Exception as error:
-            print(f"[templates] draft read failed: {error}", flush=True)
-
-        # Optional local fallback: gmail_templates.json in the app folder.
-        for item in _load_local_template_cache():
-            add_template(item)
-
-        templates.sort(key=lambda item: (item.get("name") or item.get("subject") or "").lower())
-        return jsonify({"ok": True, "templates": templates[:200]})
-    except GmailAuthRequired:
-        return _json_gmail_auth_required()
+        catalog = get_dashboard_catalog()
+        item = catalog.setdefault("emails", {}).get(thread_id) or catalog.setdefault("orders", {}).get(thread_id)
+        if not item: return jsonify({"ok": False, "error": "Could not find this email/order in the dashboard catalog yet."}), 404
+        item["favorite"] = True; item["filtered_out"] = False; item["screening_version"] = EMAIL_SCREENING_VERSION
+        if item.get("category") not in ("work", "personal"):
+            item["category"] = "work" if item.get("is_renewal_request") else "personal"
+        save_dashboard_catalog(catalog); invalidate_dashboard_cache()
+        return jsonify({"ok": True, "message": "Favorited."})
     except Exception as error:
         return jsonify({"ok": False, "error": str(error)}), 500
 
 
-# Last-mile recovery: do not allow uncertain AI filtering to hide obvious human personal/thread replies.
-_previous_build_general_email_item_for_wide_scan = build_general_email_item
+def api_unfavorite_final(thread_id: str):
+    try:
+        catalog = get_dashboard_catalog()
+        item = catalog.setdefault("emails", {}).get(thread_id) or catalog.setdefault("orders", {}).get(thread_id)
+        if not item: return jsonify({"ok": False, "error": "Could not find this email/order in the dashboard catalog yet."}), 404
+        item["favorite"] = False; save_dashboard_catalog(catalog); invalidate_dashboard_cache()
+        return jsonify({"ok": True, "message": "Removed from favorites."})
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
 
-def _wide_followup_reason(thread: Dict, connected_email: str, category: str) -> str:
-    latest = latest_inbound_email_for_dashboard(thread, connected_email)
-    name = sender_display_name(latest.get("from", ""), parseaddr(latest.get("from", ""))[1])
-    subject = re.sub(r"^(re|fw|fwd):\s*", "", latest.get("subject", "") or "", flags=re.IGNORECASE).strip()
-    if category == "personal":
-        if subject:
-            return f"{name} has a personal email thread that appears to need a reply about {subject}."
-        return f"{name} has a personal email thread that appears to need a reply."
-    return build_important_reason(thread, connected_email)
+try:
+    app.add_url_rule("/api/favorites/<thread_id>", "api_toggle_favorite_final", api_toggle_favorite_final, methods=["POST"])
+    app.add_url_rule("/api/favorites/<thread_id>", "api_unfavorite_final", api_unfavorite_final, methods=["DELETE"])
+except Exception:
+    app.view_functions["api_toggle_favorite_final"] = api_toggle_favorite_final
+    app.view_functions["api_unfavorite_final"] = api_unfavorite_final
 
 
-def build_general_email_item(service, thread: Dict, connected_email: str, personal_label_id: str, work_label_id: str) -> Optional[Dict]:
-    item = _previous_build_general_email_item_for_wide_scan(service, thread, connected_email, personal_label_id, work_label_id)
-    if item and not item.get("filtered_out") and item.get("reply"):
-        return item
-    if not thread.get("emails"):
-        return item
-    if not _thread_is_on_or_after_scan_start(thread, connected_email):
-        return item
-    if latest_email_is_from_connected_account(thread, connected_email):
-        return item
-    if get_best_order_email_text(thread):
-        return item
-    if _final_hard_junk_reason(thread, connected_email):
-        return item
-
-    latest = latest_inbound_email_for_dashboard(thread, connected_email)
-    sender_email = parseaddr(latest.get("from", ""))[1].strip()
-    body = clean_preview_text(latest.get("body", ""), 9000)
-    human_thread = _final_human_sender(sender_email) and len(thread.get("emails", [])) >= 2 and len(body.split()) >= 2
-    strong = _strong_request_score(thread, connected_email) >= 4
-    if not (strong or human_thread):
-        return item
-
-    thread_id = thread.get("thread_id", "")
-    stored_item = get_catalog_item("emails", thread_id)
-    latest_inbound_id = latest_inbound_message_id(thread, connected_email)
-    latest_sort_ts = latest_inbound_sort_key(thread, connected_email)
-    category = category_for_thread_strict(thread, connected_email) if "category_for_thread_strict" in globals() else dashboard_category_for_thread(thread, connected_email)
-    title = (latest.get("subject", "") or stored_item.get("title") or "Email needs reply").strip()
-    if len(title.split()) > 12:
-        title = " ".join(title.split()[:12])
-    reason = _wide_followup_reason(thread, connected_email, category)
-
-    if category == "personal":
-        apply_label_to_thread_messages(service, thread, personal_label_id)
-    else:
-        apply_label_to_thread_messages(service, thread, work_label_id)
-
-    queries = heuristic_context_queries_for_thread(thread, connected_email)
-    extra_context = gather_context_from_gmail(service, queries, current_thread_id=thread_id, max_threads_per_query=4) if queries else ""
-    composed = compose_reply_with_ai(thread, connected_email, category, extra_context=extra_context)
-    reply = None
-    if composed:
-        if composed.get("summary") and not summary_is_generic(composed.get("summary", "")):
-            reason = composed.get("summary", "").strip()
-        if composed.get("title") and 3 <= len(composed.get("title", "").split()) <= 12:
-            title = composed.get("title", "").strip()
-        reply = {
-            "thread_id": thread_id,
-            "mode": "thread_reply",
-            "to": sender_email,
-            "subject": composed.get("subject", "") or ("Re: " + (latest.get("subject", "") or "Your email")),
-            "body": composed.get("body", ""),
-        }
-    if not reply:
-        reply = fallback_reply_for_thread(thread, connected_email, category)
-
-    if not reply:
-        return item
-
-    return {
-        "thread_id": thread_id,
-        "category": category,
-        "title": title,
-        "important_reason": reason,
-        "status": "Needs Reply",
-        "reply_sent_at": stored_item.get("reply_sent_at", ""),
-        "latest_inbound_id": latest_inbound_id,
-        "sort_ts": latest_sort_ts or stored_item.get("sort_ts", ""),
-        "ai_screened": True,
-        "screen_confidence": 0.75,
-        "screening_version": EMAIL_SCREENING_VERSION,
-        "original": {
-            "from": latest.get("from", ""),
-            "to": latest.get("to", ""),
-            "date": latest.get("date", ""),
-            "subject": latest.get("subject", ""),
-            "body": clean_preview_text(latest.get("body", ""), 1800),
-        },
-        "reply": reply,
-    }
-
+def api_scan():
+    try:
+        request_body = request.get_json(silent=True) or {}
+        payload = perform_gmail_scan(force_full=bool(request_body.get("force_full", False)))
+        summary = payload.get("scan_summary", {})
+        return jsonify({"ok": True, "message": "Full scan complete." if request_body.get("force_full") else "Refresh complete.", "order_replies_waiting": summary.get("order_replies_waiting", len([order for order in payload.get("orders", []) if order.get("reply")])), "failed_orders_skipped": summary.get("failed_orders_skipped", 0), "suggested_replies": summary.get("suggested_replies", len([email for email in payload.get("emails", []) if email.get("reply")])), "auto_orders_sent": summary.get("auto_orders_sent", 0), "emails_checked": summary.get("emails_checked", 0), "email_threads_read": summary.get("email_threads_read", 0), "emails_accepted": summary.get("emails_accepted", 0), "emails_rejected": summary.get("emails_rejected", 0), "ai_screenings_used": summary.get("ai_screenings_used", 0), "renewal_added": summary.get("renewal_added", 0), "debug_file": summary.get("debug_file", ""), "scan_start": summary.get("scan_start", ""), "scan_window": summary.get("scan_window", f"{SCAN_START_DISPLAY} onward")})
+    except GmailAuthRequired:
+        return _json_gmail_auth_required()
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
+app.view_functions["api_scan"] = api_scan
 
 if __name__ == "__main__":
     print("\nPharmacy Prep Gmail Assistant is starting...")
