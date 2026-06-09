@@ -4438,6 +4438,465 @@ def api_send_reply(thread_id: str):
 app.view_functions["api_send_reply"] = api_send_reply
 
 
+
+# ---------------------------------------------------------------------
+# FINAL SMALL PATCH: broader personal/thread pickup, truthful order sends,
+# and daily briefing refresh/UI cleanup.
+# ---------------------------------------------------------------------
+# Scope: this intentionally leaves the frontend, renewal behavior, and normal
+# Gmail/OAuth/login routes alone.
+
+DAILY_BRIEFING_PATCH_VERSION = "2026-06-daily-personal-orders-v1"
+
+# Spend a little more budget on likely human emails so personal/thread replies
+# are not pushed out by work-only searches.
+MAX_EMAIL_THREADS_PER_SCAN = int(os.getenv("MAX_EMAIL_THREADS_PER_SCAN", "320"))
+MAX_AI_SCREENINGS_PER_SCAN = int(os.getenv("MAX_AI_SCREENINGS_PER_SCAN", "160"))
+
+
+def _latest_sender_email(thread: Dict, connected_email: str = "") -> str:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    return parseaddr(latest.get("from", ""))[1].lower().strip()
+
+
+def _thread_has_connected_account_message(thread: Dict, connected_email: str) -> bool:
+    connected = (connected_email or "").lower().strip()
+    if not connected:
+        return False
+    for email in thread.get("emails", []):
+        sender = parseaddr(email.get("from", ""))[1].lower().strip()
+        if sender == connected:
+            return True
+    return False
+
+
+def _thread_latest_is_human_inbound(thread: Dict, connected_email: str) -> bool:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    sender = parseaddr(latest.get("from", ""))[1].lower().strip()
+    if not sender:
+        return False
+    if (connected_email or "").lower().strip() and sender == (connected_email or "").lower().strip():
+        return False
+    blocked = [
+        "noreply", "no-reply", "donotreply", "mailer-daemon", "postmaster",
+        "notifications@", "notification@", "marketing@", "wordpress", "woocommerce",
+        "docusign", "adobesign", "security@", "billing@",
+    ]
+    return not any(term in sender for term in blocked)
+
+
+def _is_reply_needed_thread(thread: Dict, connected_email: str) -> bool:
+    """Detect short follow-ups in existing threads.
+
+    Example: after we ask a student/customer/personal contact a question, they reply
+    with "yes please", "that works", "can you send it", etc. Those can be missed by
+    keyword-only scanning but still require a new reply.
+    """
+    if not thread.get("emails") or len(thread.get("emails", [])) < 2:
+        return False
+    if not _thread_latest_is_human_inbound(thread, connected_email):
+        return False
+    if not _thread_has_connected_account_message(thread, connected_email):
+        return False
+    if latest_email_is_from_connected_account(thread, connected_email):
+        return False
+    if _automation_or_noise_reason(thread, connected_email) or _looks_like_fyi_only_notice(thread, connected_email):
+        return False
+
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    body = clean_preview_text(latest.get("body", ""), 2500)
+    text = f"{latest.get('subject', '')}\n{body}".lower()
+
+    reply_followup_terms = [
+        "yes", "yes please", "sure", "sounds good", "that works", "works for me",
+        "okay", "ok", "please do", "go ahead", "send it", "send me", "confirm",
+        "can you", "could you", "would you", "what about", "how about", "i agree",
+        "i can", "i cannot", "i can't", "attached", "see attached", "let me know",
+        "thank you", "thanks", "following up", "checking in",
+    ]
+    has_followup_language = any(term in text for term in reply_followup_terms)
+    has_question = "?" in text
+    word_count = len(body.split())
+
+    # Short human replies in an existing thread are usually important enough to
+    # send to AI screening rather than discard locally.
+    return bool((has_followup_language or has_question or word_count >= 4) and word_count <= 180)
+
+
+def _strong_request_score(thread: Dict, connected_email: str) -> int:
+    latest, subject, body = _latest_subject_body(thread, connected_email, 8000)
+    sender = parseaddr(latest.get("from", ""))[1].lower().strip()
+    text = f"{subject}\n{body}".lower()
+    score = 0
+
+    direct_asks = [
+        "?", "can you", "could you", "would you", "can i", "could i", "do you", "should i",
+        "please send", "please provide", "please confirm", "please advise", "please let me know",
+        "i need", "need help", "i would like", "i want", "how do i", "how can i", "when will",
+        "where is", "what is", "what's", "i have not received", "not received", "still waiting",
+        "unable to", "can't access", "cannot access", "issue", "problem", "refund", "order number",
+        "invoice", "receipt", "login", "access", "password", "extension", "renewal", "enroll", "enrol",
+        # More personal/actionable language:
+        "are you free", "are you available", "available tomorrow", "call me", "can we call",
+        "can we meet", "meeting", "appointment", "reschedule", "schedule a call", "book a time",
+        "let's meet", "lets meet", "pick up", "drop off", "come by", "need your help",
+        "please call", "please reply", "get back to me", "follow up", "checking in",
+    ]
+    for phrase in direct_asks:
+        if phrase in text:
+            score += 3
+            break
+    if "?" in text:
+        score += 3
+
+    pharmacy_topics = [
+        "pharmacy prep", "pharmacyprep", "eprepstation", "pebc", "exam", "qualifying", "evaluating",
+        "course", "class", "student", "mock", "notes", "recording", "schedule", "login", "access",
+        "account", "order", "invoice", "payment", "receipt", "refund", "book", "extension", "renewal",
+        "registration", "enrollment", "enrolment", "announcement", "prep", "mouse",
+    ]
+    personal_topics = [
+        "appointment", "meeting", "call", "availability", "available", "tomorrow", "today",
+        "tonight", "weekend", "family", "doctor", "dentist", "bank", "lawyer", "lease",
+        "rent", "insurance", "documents", "document", "form", "signature", "personal",
+    ]
+    if any(term in text for term in pharmacy_topics):
+        score += 2
+    if any(term in text for term in personal_topics):
+        score += 2
+
+    if len(body.split()) >= 10:
+        score += 1
+    if len(thread.get("emails", [])) >= 2:
+        score += 1
+    if _thread_has_connected_account_message(thread, connected_email):
+        score += 1
+    if sender and not any(x in sender for x in ["noreply", "no-reply", "donotreply", "mailer-daemon", "postmaster", "notifications@", "marketing@", "wordpress", "woocommerce"]):
+        score += 1
+    if _is_fyi_notice_or_confirmation(thread, connected_email):
+        score -= 5
+    return score
+
+
+def should_consider_thread_for_dashboard(thread: Dict, connected_email: str) -> bool:
+    if not thread.get("emails"):
+        return False
+    if not _thread_is_on_or_after_scan_start(thread, connected_email):
+        return False
+    if latest_email_is_from_connected_account(thread, connected_email):
+        return False
+    if get_best_order_email_text(thread):
+        return False
+    if _automation_or_noise_reason(thread, connected_email):
+        return False
+    if _is_reply_needed_thread(thread, connected_email):
+        return True
+    return _strong_request_score(thread, connected_email) >= 4
+
+
+def _email_scan_queries(date_clause: str, connected_email: str) -> List[str]:
+    base = f'{date_clause} -in:spam -in:trash -category:promotions -category:social'
+    if connected_email:
+        base = f'{base} -from:{connected_email}'
+
+    # Work + personal + existing-thread searches. AI screening still decides what
+    # appears; these queries just stop Gmail search from being work-only.
+    return [
+        f'{base} in:inbox ("?" OR "please" OR "can you" OR "could you" OR "would you" OR "I need" OR "let me know")',
+        f'{base} in:anywhere ("re:" OR "fw:" OR "fwd:") ("?" OR "please" OR "yes please" OR "that works" OR "sounds good" OR "checking in" OR "following up")',
+        f'{base} ("are you free" OR "are you available" OR "call me" OR "can we meet" OR "meeting" OR "appointment" OR "reschedule")',
+        f'{base} ("order number" OR "not received" OR "still waiting" OR "follow up" OR "checking in" OR "send me")',
+        f'{base} (PEBC OR exam OR announcement OR qualifying OR evaluating OR course OR class OR schedule OR notes OR recording)',
+        f'{base} (login OR access OR account OR invoice OR payment OR refund OR receipt OR extension OR renewal OR registration)',
+        f'{base} in:inbox -from:(noreply OR no-reply OR donotreply OR wordpress OR woocommerce OR notifications)',
+        f'{base} -from:(noreply OR no-reply OR donotreply OR wordpress OR woocommerce OR notifications)',
+    ]
+
+
+def was_order_message_already_sent(service, customer_email: str, order_number: str) -> bool:
+    """Only treat an order as already replied when we can find an order-specific sent email.
+
+    The previous broad search could mark a new order as "Already Replied" just
+    because we had emailed the same customer before. That prevented the automatic
+    welcome email from actually sending.
+    """
+    customer_email = (customer_email or "").strip()
+    order_number = str(order_number or "").strip()
+    if not customer_email or not order_number or order_number.lower() == "unknown":
+        return False
+
+    queries = [
+        f'in:sent newer_than:365d to:{customer_email} "order #{order_number}"',
+        f'in:sent newer_than:365d to:{customer_email} "Order #{order_number}"',
+        f'in:sent newer_than:365d to:{customer_email} "#{order_number}" "Pharmacy Prep"',
+        f'in:sent newer_than:365d to:{customer_email} "{order_number}" "Welcome to Pharmacy Prep"',
+        f'in:sent newer_than:365d to:{customer_email} "{order_number}" "Thank you for your order"',
+    ]
+    for query in queries:
+        try:
+            if gmail_search_any(service, query, max_results=5):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _action_is_proven_order_reply(action: Dict) -> bool:
+    if not action:
+        return False
+    action_type = action.get("action_type", "")
+    if action_type in ("order_auto_sent", "frontend_reply_sent"):
+        return bool(action.get("external_id")) and action.get("external_id") != "already-replied"
+    return False
+
+
+def _stored_order_has_sent_proof(stored_order: Dict) -> bool:
+    if not stored_order:
+        return False
+    return bool(
+        stored_order.get("sent_message_id")
+        or stored_order.get("sent_at")
+        or stored_order.get("reply_sent_at")
+    ) and stored_order.get("status") in ("Already Replied", "Sent", "Sent from Dashboard", "Sent Automatically")
+
+
+def build_order_item(service, thread: Dict, connected_email: str) -> Optional[Dict]:
+    if not _thread_is_on_or_after_scan_start(thread, connected_email):
+        return None
+    order_text = get_best_order_email_text(thread)
+    if not order_text:
+        return None
+
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    order_number = extract_order_number(order_text)
+    customer_email = extract_customer_email(order_text, connected_email)
+    customer_name = best_customer_name(order_text, customer_email)
+    total = extract_total(order_text)
+    products = extract_product_lines(order_text)
+    thread_key = thread_action_key(thread, connected_email)
+    action = get_thread_action(thread_key)
+    stored_order = get_processed_orders().get(order_number or "", {})
+
+    status = "Waiting to Send"
+    reply = None
+
+    if action.get("action_type") == "dismissed":
+        status = "Suggestion Removed"
+    elif _action_is_proven_order_reply(action):
+        status = "Already Replied"
+    elif _stored_order_has_sent_proof(stored_order):
+        status = stored_order.get("status") or "Already Replied"
+    elif was_thread_manually_replied(service, thread, connected_email):
+        status = "Already Replied"
+    elif customer_email and order_number and was_order_message_already_sent(service, customer_email, order_number):
+        status = "Already Replied"
+
+    if status == "Waiting to Send" and customer_email and order_number:
+        subject, body = build_order_welcome_email(customer_name, order_number)
+        reply = {
+            "thread_id": thread.get("thread_id", ""),
+            "mode": "new_email",
+            "to": customer_email,
+            "subject": subject,
+            "body": body,
+        }
+
+    sort_ts = latest_inbound_sort_key(thread, connected_email) or email_date_to_sort_key(stored_order.get("updated_at", ""))
+    return {
+        "thread_id": thread.get("thread_id", ""),
+        "order_number": order_number or "Unknown",
+        "customer_name": customer_name,
+        "customer_email": customer_email or "Unknown",
+        "total": total or "",
+        "products": products,
+        "processed_at": stored_order.get("updated_at") or latest.get("date", "") or datetime.now().isoformat(timespec="seconds"),
+        "sort_ts": sort_ts,
+        "status": status,
+        "reply": reply,
+        "original": {
+            "from": latest.get("from", ""),
+            "to": latest.get("to", ""),
+            "date": latest.get("date", ""),
+            "subject": latest.get("subject", ""),
+            "body": clean_preview_text(latest.get("body", ""), 1800),
+        },
+    }
+
+
+def _display_name_for_briefing(email: Dict) -> str:
+    original = email.get("original", {}) or {}
+    raw = original.get("from", "") or ""
+    name, address = parseaddr(raw)
+    name = re.sub(r"[\"']", "", name or "").strip()
+    if name and name.lower() not in ("unknown", "unknown sender", "no reply", "no-reply", "noreply"):
+        return name.title() if name.isupper() or name.islower() else name
+    local = (address or raw).split("@")[0]
+    local = re.sub(r"[._+-]+", " ", local).strip()
+    cleaned = " ".join(part.capitalize() for part in local.split()[:3])
+    return cleaned or "A sender"
+
+
+def _briefing_topic(email: Dict) -> str:
+    if _item_renewal_details(email):
+        details = _item_renewal_details(email) or {}
+        return f"account renewal for {details.get('course', 'a course')}"
+    original = email.get("original", {}) or {}
+    text = "\n".join([
+        str(email.get("title", "")),
+        str(email.get("important_reason", "")),
+        str(original.get("subject", "")),
+        str(original.get("body", "")),
+    ]).lower()
+    topic_map = [
+        (("login", "access", "password", "account"), "course login/access"),
+        (("renewal", "extension", "expired", "expire"), "renewals/extensions"),
+        (("book", "manual", "materials", "notes"), "books/materials"),
+        (("schedule", "class", "session", "availability", "available"), "class timing/scheduling"),
+        (("pebc", "exam", "qualifying", "evaluating", "mcq", "osce"), "PEBC/exam questions"),
+        (("payment", "invoice", "receipt", "refund", "e-transfer", "etransfer"), "payment/billing"),
+        (("order number", "order #", "order details"), "order details"),
+        (("recording", "video", "zoom", "link"), "recordings/links"),
+        (("meeting", "call", "appointment", "reschedule"), "calls/appointments"),
+    ]
+    for words, label in topic_map:
+        if any(word in text for word in words):
+            return label
+    subject = re.sub(r"^(re|fw|fwd):\s*", "", original.get("subject", "") or email.get("title", "email"), flags=re.IGNORECASE).strip()
+    return subject[:80] if subject else "a reply-worthy message"
+
+
+def _dedupe_briefing_emails(emails: List[Dict]) -> List[Dict]:
+    seen = set()
+    output = []
+    for email in emails:
+        details = _item_renewal_details(email)
+        if details:
+            key = ("renewal", _renewal_norm(details.get("student_email", "")), _renewal_norm(details.get("course", "")))
+        else:
+            original = email.get("original", {}) or {}
+            key = (
+                "email",
+                email.get("thread_id", ""),
+                email.get("latest_inbound_id", ""),
+                (original.get("subject", "") or "").lower(),
+            )
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(email)
+    return output
+
+
+def build_daily_briefing(connected_email: str, orders: List[Dict], emails: List[Dict]) -> str:
+    now_dt = datetime.now()
+    now = now_dt.strftime("%A, %B %d, %Y at %I:%M %p")
+
+    orders = [order for order in orders if _is_catalog_order_visible(order)]
+    emails = _dedupe_briefing_emails([email for email in emails if _is_catalog_email_visible(email)])
+    orders.sort(key=_catalog_sort_key, reverse=True)
+    emails.sort(key=_catalog_sort_key, reverse=True)
+
+    seen_orders = set()
+    deduped_orders = []
+    for order in orders:
+        key = (str(order.get("order_number", "")).lower(), str(order.get("customer_email", "")).lower())
+        if key in seen_orders:
+            continue
+        seen_orders.add(key)
+        deduped_orders.append(order)
+
+    open_emails = [email for email in emails if email.get("reply") and email.get("status") == "Needs Reply"]
+    work_open = [email for email in open_emails if email.get("category") == "work"]
+    personal_open = [email for email in open_emails if email.get("category") == "personal"]
+    waiting_orders = [order for order in deduped_orders if order.get("reply")]
+    handled_orders = [order for order in deduped_orders if not order.get("reply")]
+
+    topic_counts: Dict[str, int] = {}
+    for email in open_emails:
+        topic = _briefing_topic(email)
+        topic_counts[topic] = topic_counts.get(topic, 0) + 1
+    top_topics = sorted(topic_counts.items(), key=lambda item: item[1], reverse=True)[:4]
+
+    named_focus = []
+    for email in open_emails[:6]:
+        name = _display_name_for_briefing(email)
+        topic = _briefing_topic(email)
+        phrase = f"{name} ({topic})"
+        if phrase not in named_focus:
+            named_focus.append(phrase)
+
+    if open_emails or waiting_orders:
+        topic_phrase = ", ".join(
+            f"{count} {topic}" if count > 1 else topic
+            for topic, count in top_topics
+        ) or "mixed follow-ups"
+        focus_phrase = "; ".join(named_focus[:4])
+        briefing_text = (
+            f"Here is the current inbox snapshot: {len(open_emails)} email conversation"
+            f"{'' if len(open_emails) == 1 else 's'} need attention "
+            f"({len(work_open)} work, {len(personal_open)} personal). "
+            f"The main themes are {topic_phrase}. "
+        )
+        if focus_phrase:
+            briefing_text += f"Start with {focus_phrase}. "
+        if waiting_orders:
+            briefing_text += f"There are also {len(waiting_orders)} order welcome message{'' if len(waiting_orders) == 1 else 's'} waiting to send. "
+        elif handled_orders:
+            newest = handled_orders[0]
+            briefing_text += f"Orders look handled; the newest visible order is #{newest.get('order_number', 'Unknown')} for {newest.get('customer_name', 'Customer')}. "
+        briefing_text += "Older open items stay here until they are sent or handled, so this summary is refreshed today but may include unresolved messages from earlier."
+    else:
+        briefing_text = (
+            "You are caught up on reply-worthy email suggestions right now. "
+            "No work or personal conversations currently need a drafted reply, and the dashboard is only keeping order history or handled items visible."
+        )
+
+    lines = [
+        "# AI Summary",
+        "",
+        f"Generated: {now}",
+        f"Connected Gmail: {connected_email}",
+        f"Scan window: {SCAN_START_DISPLAY} onward",
+        "",
+        "Daily Briefing",
+        briefing_text,
+        "",
+        "Quick Counts",
+        f"- Work replies waiting: {len(work_open)}",
+        f"- Personal replies waiting: {len(personal_open)}",
+        f"- Order welcome emails waiting: {len(waiting_orders)}",
+        f"- Orders already handled: {len(handled_orders)}",
+        "",
+        "Orders",
+    ]
+
+    if waiting_orders:
+        for order in waiting_orders[:8]:
+            lines.append(
+                f"- Waiting: Order #{order.get('order_number', 'Unknown')} for {order.get('customer_name', 'Customer')} "
+                f"({order.get('customer_email', 'Unknown email')})"
+            )
+    elif handled_orders:
+        for order in handled_orders[:8]:
+            lines.append(
+                f"- Handled: Order #{order.get('order_number', 'Unknown')} for {order.get('customer_name', 'Customer')} "
+                f"({order.get('customer_email', 'Unknown email')})"
+            )
+    else:
+        lines.append(f"- No orders from {SCAN_START_DISPLAY} onward are stored yet.")
+
+    lines.extend([
+        "",
+        "Executive Overview",
+        f"- Visible open email replies: {len(open_emails)} total.",
+        f"- Visible orders: {len(deduped_orders)} total.",
+        f"- Summary refreshed today from the saved dashboard and latest scan data.",
+    ])
+
+    briefing = "\n".join(lines)
+    BRIEFING_FILE.write_text(briefing, encoding="utf-8")
+    return briefing
+
 if __name__ == "__main__":
     print("\nPharmacy Prep Gmail Assistant is starting...")
     print("Open this link in your browser:")
