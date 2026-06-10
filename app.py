@@ -9467,6 +9467,435 @@ def perform_gmail_scan(force_full: bool = False) -> Dict:
         print(f"[scan] user requested cleanup failed: {error}", flush=True)
         return payload
 
+
+# ---------------------------------------------------------------------
+# FAST USER PATCH: remove promo/no-reply rows + prevent empty replies
+# ---------------------------------------------------------------------
+# Only touches the requested behavior: Work/Personal/Renewals organization,
+# promotional filtering, and suggested reply quality. Order auto-reply code is unchanged.
+EMAIL_SCREENING_VERSION = "2026-06-reply-promo-fastfix-v1"
+
+_EXTRA_PROMO_TERMS = [
+    "openai", "chatgpt", "api credits", "usage limit", "usage alert", "billing alert",
+    "subscription", "your subscription", "plan renewal", "renewal reminder", "trial ends",
+    "product update", "weekly digest", "monthly digest", "recommended", "recommendations",
+    "newsletter", "unsubscribe", "manage your preferences", "view this email in your browser",
+    "promo", "promotion", "promotional", "limited time", "special offer", "exclusive offer",
+    "sale", "discount", "coupon", "deal", "deals", "webinar", "sponsored", "marketing",
+    "xbox", "game pass", "vimeo", "jp morgan", "jpmorgan", "j.p. morgan", "chase",
+    "market update", "market insights", "getsmarter", "mit sloan", "course team at getsmarter",
+]
+_EXTRA_NO_REPLY_SENDERS = [
+    "noreply", "no-reply", "donotreply", "do-not-reply", "notifications@", "notification@",
+    "marketing@", "mailer@", "mail@", "news@", "newsletter@", "updates@", "info@openai.com",
+    "noreply@openai.com", "no-reply@openai.com", "team@email.openai.com", "openai@mail.openai.com",
+    "support@pharrmacyprep.com",
+]
+
+_prev_final_is_promo_text_fastfix = _final_is_promo_text if '_final_is_promo_text' in globals() else None
+_prev_catalog_item_looks_unimportant_fastfix = _catalog_item_looks_unimportant if '_catalog_item_looks_unimportant' in globals() else None
+_prev_build_general_email_item_fastfix = build_general_email_item if 'build_general_email_item' in globals() else None
+
+
+def _fast_has_real_user_request(text: str) -> bool:
+    lowered = str(text or "").lower()
+    return any(term in lowered for term in [
+        "?", "can you", "could you", "would you", "please send", "please provide",
+        "please confirm", "please advise", "i need", "need help", "i would like",
+        "how do i", "when will", "where is", "what is", "not received", "still waiting",
+        "cannot access", "can't access", "unable to access", "refund request", "payment failed",
+        "order number", "invoice", "receipt", "login", "access", "password", "extension",
+        "renewal", "spare time", "available", "availability", "connect", "call me", "call", "schedule",
+    ])
+
+
+def _final_is_promo_text(text: str, sender: str = "") -> bool:
+    sender = str(sender or "").lower()
+    lowered = str(text or "").lower()
+    try:
+        if _is_renewal_item({"title": lowered}):
+            return False
+    except Exception:
+        pass
+    if any(blocked in sender for blocked in _FINAL_BLOCKED_SENDERS):
+        return True
+    if _prev_final_is_promo_text_fastfix and _prev_final_is_promo_text_fastfix(lowered, sender):
+        return True
+    if any(term in sender for term in _EXTRA_NO_REPLY_SENDERS) and not _fast_has_real_user_request(lowered):
+        return True
+    if any(term in lowered or term in sender for term in _EXTRA_PROMO_TERMS) and not _fast_has_real_user_request(lowered):
+        return True
+    if ("unsubscribe" in lowered or "manage preferences" in lowered or "view in browser" in lowered) and not _fast_has_real_user_request(lowered):
+        return True
+    return False
+
+
+def _catalog_item_looks_unimportant(item: Dict) -> bool:
+    if _is_renewal_item(item):
+        return False
+    original = item.get("original", {}) if isinstance(item.get("original", {}), dict) else {}
+    sender = _final_email_address(original.get("from", ""))
+    text = _final_norm_text(item.get("title", ""), item.get("important_reason", ""), original.get("from", ""), original.get("subject", ""), original.get("body", ""))
+    if _final_is_new_question_text(text) or _final_is_promo_text(text, sender):
+        return True
+    if _prev_catalog_item_looks_unimportant_fastfix:
+        return _prev_catalog_item_looks_unimportant_fastfix(item)
+    return False
+
+
+def _substantive_reply_words(body: str) -> int:
+    text = str(body or "")
+    text = re.split(r"(?i)\n\s*regards\b", text, maxsplit=1)[0]
+    text = re.sub(r"(?i)^\s*(hello|hi|dear)\s+[^,\n]+,?", "", text).strip()
+    return len(re.findall(r"[A-Za-z0-9']+", text))
+
+
+def _reply_is_only_greeting_or_signature(body: str) -> bool:
+    return _substantive_reply_words(body) < 10
+
+
+def _professionalize_reply_body(body: str, category: str = "work") -> str:
+    original = str(body or "").replace("\r\n", "\n").replace("\r", "\n")
+    original = original.replace("—", ",").replace("–", ",")
+    original = re.sub(r"(?im)^\s*subject\s*:.*\n?", "", original)
+    lines = []
+    for line in original.split("\n"):
+        cleaned = re.sub(r"^\s*[-*•–—]\s+", "", line).strip()
+        cleaned = re.sub(r"^\s*\d+[.)]\s+", "", cleaned).strip()
+        if cleaned:
+            lines.append(cleaned)
+        elif lines and lines[-1] != "":
+            lines.append("")
+    text = "\n".join(lines)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    filler_patterns = [
+        r"(?i)\bwe (received|have received) your (message|email)[^.\n]*(\.|\n)",
+        r"(?i)\bthank you for (reaching out|your email|contacting us)\.\s*",
+        r"(?i)\bwe (will|would) (review|look into|check and get back|get back to you)[^.\n]*(\.|\n)",
+        r"(?i)\bi (will|would) (review|look into|check and get back|get back to you)[^.\n]*(\.|\n)",
+    ]
+    candidate = text
+    for pattern in filler_patterns:
+        candidate = re.sub(pattern, "", candidate).strip()
+    if _substantive_reply_words(candidate) >= 10:
+        text = candidate
+    signature = "Regards\nPharmacy Prep\nPhone: 416-223-PREP (7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+    main = re.split(r"(?i)\n\s*regards\b", text, maxsplit=1)[0].strip()
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", main) if p.strip()]
+    main = "\n\n".join(paragraphs[:2]).strip()
+    if _reply_is_only_greeting_or_signature(main):
+        return ""
+    if category == "work":
+        return (main.rstrip() + "\n\n" + signature).strip()
+    return (main.rstrip() + "\n\nRegards").strip()
+
+
+def _is_bad_generic_reply_text(value: str) -> bool:
+    text = str(value or "").lower().strip()
+    if not text or _reply_is_only_greeting_or_signature(value):
+        return True
+    bad = [
+        "we received your message", "we received your email", "we will review", "we will get back",
+        "get back to you shortly", "we will check and get back", "i will check and get back",
+        "we will look into", "we will follow up shortly", "we will respond with the specific information",
+        "please wait while", "wanted to reply right away", "thank you for your email. we will review",
+    ]
+    if any(p in text for p in bad):
+        return True
+    if len([line for line in str(value or "").splitlines() if re.match(r"^\s*([-*•–—]|\d+[.)])\s+", line)]) > 0:
+        return True
+    return False
+
+
+def reply_needs_regeneration(reply_body: str, latest_body: str, category: str = "work") -> bool:
+    body = _professionalize_reply_body(reply_body or "", category)
+    if not body or _is_bad_generic_reply_text(body) or _substantive_reply_words(body) < 14:
+        return True
+    latest = clean_preview_text(latest_body or "", 7000).strip()
+    if latest and (body.lower().startswith(latest.lower()[:80]) or copied_sequence_found(body, latest, sequence_len=14)):
+        return True
+    return False
+
+
+def _fast_context_queries_for_thread(thread: Dict, connected_email: str) -> List[str]:
+    base_queries = heuristic_context_queries_for_thread(thread, connected_email) if 'heuristic_context_queries_for_thread' in globals() else []
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    sender_email = _final_email_address(latest.get("from", ""))
+    text = _final_norm_text(latest.get("subject", ""), latest.get("body", ""))
+    extra = []
+    if sender_email:
+        extra.extend([
+            f'in:anywhere from:{sender_email}',
+            f'in:anywhere to:{sender_email}',
+            f'in:sent to:{sender_email}',
+            f'in:anywhere ({sender_email}) (order OR invoice OR receipt OR payment OR login OR access OR course OR PEBC OR renewal)',
+        ])
+    for phrase in ["order number", "invoice", "receipt", "payment", "login", "access", "course", "pebc", "renewal", "extension", "available", "spare time", "call", "connect"]:
+        if phrase in text:
+            extra.append(f'in:anywhere "{phrase}"')
+            if sender_email:
+                extra.append(f'in:anywhere ({sender_email}) "{phrase}"')
+    out = []
+    for q in extra + list(base_queries or []):
+        if q and q not in out:
+            out.append(q)
+    return out[:14]
+
+
+def compose_reply_with_ai(thread: Dict, connected_email: str, category: str, extra_context: str = "") -> Optional[Dict]:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    latest_text, sender = _final_latest_text_sender(thread, connected_email)
+    if _final_is_promo_text(latest_text, sender):
+        return None
+    _name, sender_email = parseaddr(latest.get("from", ""))
+    sender_email = sender_email.strip()
+    display_name = sender_display_name(latest.get("from", ""), sender_email)
+    subject = latest.get("subject", "") or "Your email"
+    clean_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+    latest_body = compact_ai_context(latest.get("body", ""), 7000)
+    local_context = search_processed_orders_context(sender_email, f"{latest.get('subject', '')}\n{latest_body}")
+    thread_text = compact_ai_context(format_thread_for_ai(thread), 11000)
+    facts = _extract_specific_context_facts(f"{local_context}\n{extra_context}") if '_extract_specific_context_facts' in globals() else ""
+    prompt = f'''
+Write a concise professional reply. It must include a real answer or next step, not just a greeting/signature.
+
+Rules:
+- No bullet points, no dashes, no numbered lists, no markdown.
+- Do not say "we received your email", "we will review", "we will get back to you", or similar filler.
+- Use Gmail context directly when it contains order, payment, login, course, EE/PEBC, renewal, availability, or prior reply details.
+- If the sender asks to connect or asks for spare time, answer with a clear scheduling response asking for specific available time slots.
+- If exact information is missing, say what is missing and ask one specific follow-up question.
+- Keep it 45 to 110 words before signature.
+- Work emails must end with the exact Pharmacy Prep signature. Personal emails should end with "Regards" only.
+
+Return JSON only:
+{{
+  "title": "short dashboard title, 4-9 words",
+  "summary": "specific one-sentence summary mentioning who is asking and what context was checked",
+  "subject": "{clean_subject}",
+  "body": "full outbound reply only"
+}}
+
+Work signature:
+Regards
+Pharmacy Prep
+Phone: 416-223-PREP (7737)
+WhatsApp: 647-221-0457
+www.pharmacyprep.com
+
+Category: {category}
+Sender: {display_name} <{sender_email}>
+Latest subject: {latest.get('subject', '')}
+Latest body:
+{latest_body}
+
+Current Gmail thread:
+{thread_text}
+
+Stored order context:
+{local_context or 'None found'}
+
+Extracted Gmail facts:
+{facts or 'None extracted'}
+
+Related Gmail API context:
+{extra_context or 'None found'}
+'''
+    parsed = _openai_json_response(prompt, model=OPENAI_REPLY_MODEL) if '_openai_json_response' in globals() else None
+    if not isinstance(parsed, dict):
+        return None
+    body = _professionalize_reply_body(str(parsed.get("body", "") or "").strip(), category)
+    if not body or reply_needs_regeneration(body, latest_body, category):
+        retry = _openai_json_response(prompt + "\n\nThe last draft was too generic or empty. Rewrite with one concrete response sentence and no filler.", model=OPENAI_REPLY_MODEL) if '_openai_json_response' in globals() else None
+        if isinstance(retry, dict):
+            retry_body = _professionalize_reply_body(str(retry.get("body", "") or "").strip(), category)
+            if retry_body and not reply_needs_regeneration(retry_body, latest_body, category):
+                parsed = retry
+                body = retry_body
+    if not body or reply_needs_regeneration(body, latest_body, category):
+        return None
+    return {
+        "title": str(parsed.get("title", "") or "").strip(),
+        "summary": str(parsed.get("summary", "") or "").strip(),
+        "subject": str(parsed.get("subject", clean_subject) or clean_subject).strip() or clean_subject,
+        "body": body,
+    }
+
+
+def fallback_reply_for_thread(thread: Dict, connected_email: str, category: str) -> Dict:
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    _, to_email = parseaddr(latest.get("from", ""))
+    display_name = sender_display_name(latest.get("from", ""), to_email)
+    greeting_name = display_name if display_name and display_name != "The sender" else "there"
+    subject = (latest.get("subject", "") or "Your email").strip()
+    if not subject.lower().startswith("re:"):
+        subject = "Re: " + subject
+    lowered = _final_norm_text(latest.get("subject", ""), latest.get("body", ""))
+    if any(t in lowered for t in ["spare time", "available", "availability", "connect", "call", "reach"]):
+        main = "Please share two or three time slots that work for you today, and we will try to connect during one of those times."
+    elif any(t in lowered for t in ["login", "access", "password"]):
+        main = "Please confirm the email address used for your registration so we can check the account access and send the correct login details."
+    elif any(t in lowered for t in ["order number", "order #"]):
+        main = "Please confirm the email address or name used for the order so we can locate the correct order number and send it to you."
+    elif any(t in lowered for t in ["invoice", "receipt", "payment", "paid"]):
+        main = "Please send the payment name, email address, or transaction reference so we can match the record and provide the correct receipt or payment details."
+    elif any(t in lowered for t in ["pebc", "ee", "evaluating", "qualifying", "exam"]):
+        main = "Please send the exact PEBC or course detail you want confirmed, and we will answer it based on the current course information."
+    elif any(t in lowered for t in ["course", "class", "recording", "notes", "book", "materials"]):
+        main = "Please confirm the course or module you are referring to, and we will send the correct class, materials, notes, or recording details."
+    else:
+        main = "Please send the specific detail you would like confirmed, and we will respond with the correct information."
+    if category == "work":
+        body = f"Hello {greeting_name},\n\n{main}\n\nRegards\nPharmacy Prep\nPhone: 416-223-PREP (7737)\nWhatsApp: 647-221-0457\nwww.pharmacyprep.com"
+    else:
+        body = f"Hello {greeting_name},\n\n{main}\n\nRegards"
+    return {"thread_id": thread.get("thread_id", ""), "mode": "thread_reply", "to": to_email, "subject": subject, "body": body}
+
+
+def build_general_email_item(service, thread: Dict, connected_email: str, personal_label_id: str, work_label_id: str) -> Optional[Dict]:
+    if _final_is_renewal_thread(thread, connected_email):
+        return None
+    latest_text, sender = _final_latest_text_sender(thread, connected_email)
+    if _final_is_new_question_text(latest_text) or _final_is_promo_text(latest_text, sender):
+        return None
+    item = _prev_build_general_email_item_fastfix(service, thread, connected_email, personal_label_id, work_label_id) if _prev_build_general_email_item_fastfix else None
+    if not item or item.get("filtered_out") or item.get("status") == "Filtered Out":
+        return item
+    category = category_for_thread_strict(thread, connected_email)
+    if category == "renewal":
+        return None
+    item["category"] = category
+    item["screening_version"] = EMAIL_SCREENING_VERSION
+    item["ai_screened"] = True
+    if "_thread_history_for_ui" in globals():
+        item["thread_history"] = _thread_history_for_ui(thread, connected_email)
+    reply = item.get("reply") if isinstance(item.get("reply"), dict) else None
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    latest_body = clean_preview_text(latest.get("body", ""), 7000)
+    needs_new_reply = not reply or reply_needs_regeneration(reply.get("body", ""), latest_body, category)
+    if needs_new_reply and item.get("status") != "Already Replied":
+        queries = _fast_context_queries_for_thread(thread, connected_email)
+        extra_context = gather_context_from_gmail(service, queries, current_thread_id=thread.get("thread_id", ""), max_threads_per_query=3) if queries else ""
+        composed = compose_reply_with_ai(thread, connected_email, category, extra_context=extra_context)
+        if composed:
+            item["reply"] = {
+                "thread_id": thread.get("thread_id", ""),
+                "mode": "thread_reply",
+                "to": parseaddr(latest.get("from", ""))[1].strip(),
+                "subject": composed.get("subject", ""),
+                "body": composed.get("body", ""),
+            }
+            if composed.get("summary"):
+                item["important_reason"] = composed.get("summary")
+            if composed.get("title") and 3 <= len(composed.get("title", "").split()) <= 12:
+                item["title"] = composed.get("title")
+        else:
+            item["reply"] = fallback_reply_for_thread(thread, connected_email, category)
+    elif reply:
+        body = _professionalize_reply_body(reply.get("body", ""), category)
+        if not body:
+            item["reply"] = fallback_reply_for_thread(thread, connected_email, category)
+        else:
+            item["reply"]["body"] = body
+    return item
+
+
+def _cleanup_catalog_for_tabs() -> int:
+    catalog = get_dashboard_catalog()
+    emails = catalog.setdefault("emails", {})
+    changed = 0
+    new_emails = {}
+    for key, item in list((emails or {}).items()):
+        if not isinstance(item, dict):
+            changed += 1
+            continue
+        original = item.get("original", {}) if isinstance(item.get("original", {}), dict) else {}
+        sender = _final_email_address(original.get("from", ""))
+        text = _final_norm_text(item.get("title", ""), item.get("important_reason", ""), original.get("from", ""), original.get("subject", ""), original.get("body", ""))
+        if _final_is_new_question_text(text) or _final_is_promo_text(text, sender):
+            changed += 1
+            continue
+        if _is_renewal_item(item):
+            item = _final_prepare_renewal_item(item) if '_final_prepare_renewal_item' in globals() else item
+            stable = item.get("thread_id") or key
+            try:
+                details = _item_renewal_details(item) if '_item_renewal_details' in globals() else None
+                if details and "_renewal_stable_thread_id" in globals():
+                    stable = _renewal_stable_thread_id(details.get("student_email", ""), details.get("course", ""))
+                    item["thread_id"] = stable
+                    if isinstance(item.get("reply"), dict):
+                        item["reply"]["thread_id"] = stable
+            except Exception:
+                pass
+            item["category"] = "renewal"
+            item["screening_version"] = EMAIL_SCREENING_VERSION
+            item["ai_screened"] = True
+            new_emails[stable] = item
+            changed += int(stable != key)
+            continue
+        new_category = "work" if _is_item_pharmacy_prep_related(item) else "personal"
+        if item.get("category") != new_category or item.get("screening_version") != EMAIL_SCREENING_VERSION:
+            changed += 1
+        item["category"] = new_category
+        item["screening_version"] = EMAIL_SCREENING_VERSION
+        item["ai_screened"] = True
+        if isinstance(item.get("reply"), dict):
+            body = _professionalize_reply_body(item["reply"].get("body", ""), new_category)
+            if body:
+                if body != item["reply"].get("body", ""):
+                    changed += 1
+                item["reply"]["body"] = body
+            else:
+                item["reply"] = None
+                item["status"] = "Filtered Out"
+                item["filtered_out"] = True
+                changed += 1
+                continue
+        new_emails[key] = item
+    if changed:
+        catalog["emails"] = new_emails
+        save_dashboard_catalog(catalog)
+        invalidate_dashboard_cache()
+    return changed
+
+
+def _is_catalog_email_visible(item: Dict) -> bool:
+    if not isinstance(item, dict) or not _item_is_on_or_after_scan_start(item):
+        return False
+    if item.get("filtered_out") or item.get("status") == "Filtered Out":
+        return False
+    if _catalog_item_looks_unimportant(item):
+        return False
+    if _is_renewal_item(item):
+        return bool(item.get("reply")) or item.get("status") in ("Needs Reply", "Already Replied", "Suggestion Removed")
+    category = _final_category_for_item(item)
+    if category not in ("work", "personal"):
+        return False
+    reply = item.get("reply") if isinstance(item.get("reply"), dict) else None
+    if reply and reply_needs_regeneration(reply.get("body", ""), item.get("original", {}).get("body", ""), category):
+        return False
+    return bool(reply) or (item.get("status") in ("Already Replied", "Suggestion Removed") and bool(item.get("important_reason")))
+
+
+_prev_perform_gmail_scan_fastfix = perform_gmail_scan
+def perform_gmail_scan(force_full: bool = False) -> Dict:
+    payload = _prev_perform_gmail_scan_fastfix(force_full=force_full)
+    try:
+        cleaned_count = _cleanup_catalog_for_tabs()
+        invalidate_dashboard_cache()
+        fresh = build_dashboard_payload(force_refresh=True)
+        fresh["scan_summary"] = {
+            **(payload.get("scan_summary", {}) if isinstance(payload, dict) else {}),
+            "catalog_cleanup_changed": cleaned_count,
+            "reply_fix": "removed greeting-only drafts and regenerated context replies on scan",
+            "promo_filter": "OpenAI/ChatGPT subscriptions, newsletters, promos, Xbox, Vimeo, JP Morgan/GetSmarter removed",
+            "order_auto_reply": "unchanged",
+        }
+        return fresh
+    except Exception as error:
+        print(f"[scan] fast reply/promo cleanup failed: {error}", flush=True)
+        return payload
+
 if __name__ == "__main__":
     print("\nPharmacy Prep Gmail Assistant is starting...")
     port = int(os.getenv("PORT", "5050"))

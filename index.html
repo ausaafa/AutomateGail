@@ -1797,7 +1797,7 @@
         "xbox", "game pass", "vimeo", "jp morgan", "jpmorgan", "j.p. morgan", "chase", "market update",
         "market insights", "newsletter", "unsubscribe", "promotion", "promotional", "limited time", "special offer",
         "exclusive offer", "sale", "discount", "coupon", "webinar", "sponsored", "recommended for you",
-        "watch now", "stream now", "creator update", "gaming", "mail.vimeo", "email.vimeo"
+        "watch now", "stream now", "creator update", "gaming", "mail.vimeo", "email.vimeo", "openai", "chatgpt", "subscription", "trial ends", "product update", "weekly digest", "monthly digest", "usage alert", "billing alert", "plan renewal"
       ];
       const directSupport = ["cannot access", "can't access", "unable to access", "payment failed", "refund request", "invoice attached", "contract for signature", "action required"].some(t => haystack.includes(t));
       return promoTerms.some(t => haystack.includes(t)) && !directSupport;
@@ -1950,7 +1950,7 @@
       if (!email || isRenewalEmail(email)) return false;
       const original = email.original || {};
       const haystack = [email.title || "", email.important_reason || "", original.from || "", original.subject || "", original.body || ""].join(" ").toLowerCase().replace(/\s+/g, " ");
-      const promoTerms = ["xbox", "game pass", "vimeo", "jp morgan", "jpmorgan", "j.p. morgan", "chase", "market update", "newsletter", "unsubscribe", "promotion", "promotional", "limited time", "special offer", "sale", "discount", "coupon", "webinar", "sponsored", "getsmarter", "mit sloan"];
+      const promoTerms = ["xbox", "game pass", "vimeo", "jp morgan", "jpmorgan", "j.p. morgan", "chase", "market update", "newsletter", "unsubscribe", "promotion", "promotional", "limited time", "special offer", "sale", "discount", "coupon", "webinar", "sponsored", "getsmarter", "mit sloan", "openai", "chatgpt", "subscription", "trial ends", "product update", "weekly digest", "monthly digest", "usage alert", "billing alert", "plan renewal"];
       const directSupport = ["cannot access", "can't access", "unable to access", "payment failed", "refund request", "invoice", "order number", "receipt"].some(t => haystack.includes(t));
       return promoTerms.some(t => haystack.includes(t)) && !directSupport;
     }
