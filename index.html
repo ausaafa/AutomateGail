@@ -182,33 +182,6 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .refresh-btn {
-      position: relative;
-      min-width: 124px;
-      height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .button-spinner {
-      display: none;
-      width: 18px;
-      height: 18px;
-      border: 3px solid rgba(5, 5, 5, .18);
-      border-top-color: #050505;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-    }
-
-    .refresh-btn.loading {
-      opacity: .85;
-      pointer-events: none;
-    }
-
-    .refresh-btn.loading .refresh-btn-text { display: none; }
-    .refresh-btn.loading .button-spinner { display: inline-block; }
-
     .workspace {
       width: 100%;
       display: grid;
@@ -623,37 +596,6 @@
     }
 
 
-    .auth-banner {
-      position: fixed;
-      left: 50%;
-      top: 18px;
-      transform: translateX(-50%);
-      width: min(520px, calc(100vw - 28px));
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      background: #ffffff;
-      color: #050505;
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      border-radius: 6px;
-      padding: 13px 14px;
-      z-index: 140;
-      font-weight: 850;
-      line-height: 1.35;
-    }
-
-    .auth-banner.open { display: flex; }
-
-    .auth-banner button {
-      min-width: 132px;
-      background: #050505;
-      color: white;
-      border: 1px solid #050505;
-    }
-
-
 
     .modal-backdrop {
       position: fixed;
@@ -670,7 +612,7 @@
     .modal-backdrop.open { display: flex; }
 
     .modal {
-      width: min(1260px, 96vw);
+      width: min(1500px, 98vw);
       max-height: 92vh;
       background: white;
       border-radius: 8px;
@@ -715,7 +657,7 @@
 
     .modal-grid {
       display: grid;
-      grid-template-columns: .95fr 1.05fr;
+      grid-template-columns: .82fr 1.18fr;
       gap: 18px;
       padding: 20px 24px;
       min-height: 0;
@@ -752,6 +694,7 @@
       padding: 16px;
       display: grid;
       gap: 12px;
+      min-height: 0;
     }
 
     .modal-label {
@@ -791,9 +734,42 @@
     }
 
     .modal-textarea {
-      min-height: 340px;
+      min-height: 390px;
+      max-height: 52vh;
       resize: vertical;
       line-height: 1.65;
+      overflow-y: auto;
+    }
+
+
+
+    .template-select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 13px;
+      font: inherit;
+      font-size: 16px;
+      outline: none;
+      background: white;
+    }
+
+    .template-hint {
+      margin-top: -6px;
+      color: #475467;
+      font-weight: 750;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .modal-textarea[contenteditable="true"] {
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .modal-textarea[contenteditable="true"] p {
+      margin: 0 0 10px 0;
     }
 
     .modal-actions {
@@ -816,6 +792,112 @@
     .box-body.reply-preview-clean { min-height: 260px; }
     .summary, .briefing, .section-note, .meta, .connected, .stat-label { color: #111111; }
     .box-title.response, .response-head { color: #050505; }
+
+
+
+    /* Final thread timeline UI: connected faded message cards for older replies/forwards. */
+    .thread-box-body { padding: 14px; white-space: normal; }
+    .thread-timeline {
+      position: relative;
+      display: grid;
+      gap: 0;
+      padding: 4px 0 4px 0;
+      white-space: normal;
+    }
+    .thread-node {
+      position: relative;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      min-width: 0;
+      padding-bottom: 16px;
+    }
+    .thread-node:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 20px;
+      bottom: -4px;
+      width: 2px;
+      background: #cfd5df;
+    }
+    .thread-node::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      top: 20px;
+      width: 18px;
+      height: 2px;
+      background: #cfd5df;
+    }
+    .thread-dot {
+      position: relative;
+      z-index: 1;
+      width: 12px;
+      height: 12px;
+      margin: 14px 0 0 10px;
+      border-radius: 999px;
+      border: 2px solid #98a2b3;
+      background: #ffffff;
+      box-shadow: 0 0 0 4px #f8fafc;
+    }
+    .thread-card-ui {
+      min-width: 0;
+      border: 1px solid #d0d5dd;
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 13px 15px;
+      color: #101828;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    }
+    .thread-node:first-child .thread-card-ui { background: #ffffff; }
+    .thread-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding-bottom: 9px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #e4e7ec;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .thread-card-title { font-weight: 950; color: #050505; }
+    .thread-card-date { font-weight: 850; color: #475467; white-space: nowrap; }
+    .thread-card-meta {
+      color: #344054;
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 800;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+    .thread-card-subject { font-weight: 950; color: #111827; margin-bottom: 9px; }
+    .thread-card-body {
+      color: #000000;
+      font-size: 16px;
+      line-height: 1.55;
+      font-weight: 650;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .thread-card-body.compact {
+      max-height: 360px;
+      overflow-y: auto;
+      scrollbar-gutter: stable;
+    }
+    .forward-chip {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-bottom: 8px;
+      padding: 4px 8px;
+      border: 1px solid #d0d5dd;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #475467;
+      font-size: 12px;
+      font-weight: 950;
+    }
 
     @media (max-width: 1120px) {
       html, body { overflow-y: auto; overflow-x: hidden; }
@@ -875,14 +957,8 @@
 
       <div class="actions">
         <button class="kill-switch" onclick="toggleAutoReply()" id="killSwitchBtn">Auto Reply: On</button>
-        <button class="secondary refresh-btn loading" onclick="refreshNow()" id="refreshBtn" type="button" aria-live="polite" aria-busy="true" disabled>
-          <span class="refresh-btn-text">Refresh</span>
-          <span class="button-spinner" aria-hidden="true"></span>
-        </button>
-        <button class="secondary refresh-btn" onclick="fullScanNow()" id="fullScanBtn" type="button" aria-live="polite" aria-busy="false" disabled title="Full scan checks every Gmail thread from June 2026 onward, then Refresh goes back to incremental checking.">
-          <span class="refresh-btn-text">Full Scan</span>
-          <span class="button-spinner" aria-hidden="true"></span>
-        </button>
+        <button class="primary" onclick="fullScanNow()" id="scanBtn">Full Scan</button>
+        <button class="secondary" onclick="refreshNow()">Refresh</button>
       </div>
     </header>
 
@@ -891,6 +967,7 @@
         <nav class="panel sidebar">
           <button class="nav-btn" onclick="setSection('orders')" id="nav-orders">Orders <span class="pill" id="pill-orders">0</span></button>
           <button class="nav-btn active" onclick="setSection('work')" id="nav-work">Work Email <span class="pill" id="pill-work">0</span></button>
+          <button class="nav-btn" onclick="setSection('renewals')" id="nav-renewals">Renewals <span class="pill" id="pill-renewals">0</span></button>
           <button class="nav-btn" onclick="setSection('personal')" id="nav-personal">Personal Email <span class="pill" id="pill-personal">0</span></button>
           <button class="nav-btn" onclick="setSection('summary')" id="nav-summary">AI Summary <span class="pill">Today</span></button>
         </nav>
@@ -953,11 +1030,14 @@
           <div class="modal-section-title">Response</div>
           <div class="modal-form">
             <div class="modal-label">To</div>
-            <div class="modal-to" id="modalTo"></div>
+            <input class="modal-input" id="modalTo" placeholder="recipient@example.com" />
             <div class="modal-label">Subject</div>
             <input class="modal-input" id="modalSubject" />
+            <select class="template-select" id="modalTemplateSelect" onchange="applyTemplate(this.value)">
+              <option value="">Templates</option>
+            </select>
             <div class="modal-label">Reply</div>
-            <textarea class="modal-textarea" id="modalBody"></textarea>
+            <div class="modal-textarea" id="modalBody" contenteditable="true"></div>
           </div>
         </section>
       </div>
@@ -966,11 +1046,6 @@
         <button class="success" type="button" id="modalSendBtn">Send Email</button>
       </div>
     </div>
-  </div>
-
-  <div class="auth-banner" id="gmailAuthBanner">
-    <span id="gmailAuthMessage">Please sign in again.</span>
-    <button type="button" id="gmailAuthBtn">Sign in again</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -990,28 +1065,12 @@
         last_auto_scan_at: ""
       },
       currentModalThreadId: "",
+      templates: [],
       isScanning: false,
-      pageLoaded: false,
-      gmailAuthUrl: "",
       autoScanTimer: null,
       dashboardTimer: null,
       hasInitialAutoScan: false
     };
-
-    function showGmailAuthBanner(message, authUrl) {
-      const banner = document.getElementById("gmailAuthBanner");
-      const messageEl = document.getElementById("gmailAuthMessage");
-      const btn = document.getElementById("gmailAuthBtn");
-      state.gmailAuthUrl = authUrl || "/auth/gmail";
-      messageEl.textContent = message || "Please sign in again.";
-      btn.onclick = () => { window.location.href = state.gmailAuthUrl; };
-      banner.classList.add("open");
-    }
-
-    function hideGmailAuthBanner() {
-      const banner = document.getElementById("gmailAuthBanner");
-      if (banner) banner.classList.remove("open");
-    }
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -1019,24 +1078,8 @@
         ...options
       });
 
-      let data = {};
-      try {
-        data = await response.json();
-      } catch (_) {
-        data = {};
-      }
-
-      if ((response.status === 401 || response.status === 403) && data && data.auth_required) {
-        if (data.auth_type === "gmail") {
-          showGmailAuthBanner(data.error || "Please sign in again.", data.auth_url || "/auth/gmail");
-        } else if (data.login_url) {
-          window.location.href = data.login_url;
-        }
-        throw new Error(data.error || "Please sign in again.");
-      }
-
+      const data = await response.json();
       if (!response.ok || data.ok === false) throw new Error(data.error || "Request failed");
-      hideGmailAuthBanner();
       return data;
     }
 
@@ -1047,28 +1090,47 @@
       setTimeout(() => { toast.style.display = "none"; }, 5200);
     }
 
-    function setRefreshButtonLoading(isLoading, targetButtonId = "refreshBtn") {
-      const refreshBtn = document.getElementById("refreshBtn");
-      const fullScanBtn = document.getElementById("fullScanBtn");
-      const buttons = [refreshBtn, fullScanBtn].filter(Boolean);
-      const locked = isLoading || !state.pageLoaded;
-      buttons.forEach(button => {
-        button.disabled = locked;
-        const isTarget = button.id === targetButtonId;
-        button.classList.toggle("loading", isLoading && isTarget);
-        button.setAttribute("aria-busy", isLoading && isTarget ? "true" : "false");
-      });
-    }
-
-    function setLoading(isLoading, text = "Working...", showRefreshSpinner = false, targetButtonId = "refreshBtn") {
+    function setLoading(isLoading, text = "Working...") {
       document.getElementById("loadingBox").style.display = isLoading ? "flex" : "none";
+      document.getElementById("scanBtn").disabled = isLoading;
       document.getElementById("statusText").textContent = isLoading ? text : "Ready";
-      if (showRefreshSpinner) setRefreshButtonLoading(isLoading, targetButtonId);
     }
 
-    async function loadDashboard(options = {}) {
+
+    async function loadTemplates() {
       try {
-        if (options.showRefreshSpinner) setLoading(true, "Loading dashboard...", true);
+        const data = await api("/api/templates");
+        state.templates = Array.isArray(data.templates) ? data.templates : [];
+      } catch (error) {
+        state.templates = [];
+      }
+    }
+
+    function populateTemplateDropdown() {
+      const select = document.getElementById("modalTemplateSelect");
+      if (!select) return;
+      const current = select.value;
+      select.innerHTML = `<option value="">Templates</option>` + state.templates.map(template => {
+        return `<option value="${escapeAttr(template.id)}">${escapeHtml(template.title || template.subject || "Template")}</option>`;
+      }).join("");
+      select.value = current || "";
+    }
+
+    function applyTemplate(templateId) {
+      if (!templateId) return;
+      const template = state.templates.find(item => String(item.id) === String(templateId));
+      if (!template) return;
+      const subjectBox = document.getElementById("modalSubject");
+      const bodyBox = document.getElementById("modalBody");
+      if (subjectBox) subjectBox.value = template.subject || template.title || subjectBox.value || "Reply";
+      if (bodyBox) bodyBox.innerHTML = template.body_html || escapeHtml(template.body_text || "").replaceAll("\n", "<br>");
+      bodyBox.focus();
+    }
+
+    async function loadDashboard() {
+      try {
+        if (!state.templates.length) await loadTemplates();
+        setLoading(true, "Refreshing dashboard...");
         const data = await api("/api/dashboard");
 
         document.getElementById("connectedEmail").textContent = data.connected_email || "Connected Gmail";
@@ -1086,18 +1148,35 @@
         syncKillSwitchButton();
         startAutoRefreshLoops();
         renderSection();
+        triggerInitialAutoScan();
       } catch (error) {
-        if (!options.silent) showToast(error.message);
+        showToast(error.message);
       } finally {
-        if (options.showRefreshSpinner) setLoading(false, "Ready", true);
+        setLoading(false);
       }
+    }
+
+    function isRenewalEmail(email) {
+      if (!email) return false;
+      const details = email.renewal_details || {};
+      const original = email.original || {};
+      const haystack = [
+        email.title || "",
+        email.important_reason || "",
+        original.subject || "",
+        original.body || "",
+        details.course || "",
+        details.student_email || ""
+      ].join(" ").toLowerCase();
+      return Boolean(email.is_renewal_request || email.renewal_request || haystack.includes("account renewal request"));
     }
 
     function updateStats() {
       const ordersHandled = Number.isFinite(state.stats.orders_replied) ? state.stats.orders_replied : state.orders.filter(order => !order.reply).length;
       const pendingReplies = Number.isFinite(state.stats.pending_replies) ? state.stats.pending_replies : (state.pendingReplies.length || state.orders.filter(order => order.reply).length + state.emails.filter(email => email.reply).length);
-      const workEmails = Number.isFinite(state.stats.work_emails) ? state.stats.work_emails : state.emails.filter(email => email.category === "work").length;
-      const personalEmails = Number.isFinite(state.stats.personal_emails) ? state.stats.personal_emails : state.emails.filter(email => email.category === "personal").length;
+      const renewalEmails = Number.isFinite(state.stats.renewal_emails) ? state.stats.renewal_emails : state.emails.filter(isRenewalEmail).length;
+      const workEmails = Number.isFinite(state.stats.work_emails) ? state.stats.work_emails : state.emails.filter(email => email.category === "work" && !isRenewalEmail(email)).length;
+      const personalEmails = Number.isFinite(state.stats.personal_emails) ? state.stats.personal_emails : state.emails.filter(email => email.category === "personal" && !isRenewalEmail(email)).length;
 
       document.getElementById("ordersReplied").textContent = ordersHandled;
       document.getElementById("pendingReplies").textContent = pendingReplies;
@@ -1106,12 +1185,14 @@
 
       document.getElementById("pill-orders").textContent = state.orders.length || 0;
       document.getElementById("pill-work").textContent = workEmails;
+      const renewalPill = document.getElementById("pill-renewals");
+      if (renewalPill) renewalPill.textContent = renewalEmails;
       document.getElementById("pill-personal").textContent = personalEmails;
     }
 
     function setSection(section) {
       state.activeSection = section;
-      ["orders", "work", "personal", "summary"].forEach(name => {
+      ["orders", "work", "renewals", "personal", "summary"].forEach(name => {
         document.getElementById(`nav-${name}`).classList.toggle("active", name === section);
       });
       renderSection();
@@ -1120,6 +1201,7 @@
     function renderSection() {
       if (state.activeSection === "orders") renderOrders();
       if (state.activeSection === "work") renderEmailCategory("work");
+      if (state.activeSection === "renewals") renderEmailCategory("renewals");
       if (state.activeSection === "personal") renderEmailCategory("personal");
       if (state.activeSection === "summary") renderSummary();
     }
@@ -1133,12 +1215,12 @@
     }
 
     function renderOrders() {
-      setHeader("Orders", "", "Orders stay visible here and are sorted with the newest at the top. New order welcomes are sent automatically when safe; anything that needs review still shows a Reply button, and already handled orders remain visible.");
+      setHeader("Orders", "", "Orders stay visible here and are sorted with the newest at the top. New customer welcomes show a Reply button; already handled orders remain visible so you can confirm they were covered.");
       const list = document.getElementById("mainList");
       const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
 
       if (!orders.length) {
-        list.innerHTML = `<div class="empty">No orders from June 2026 onward were found yet. Click <strong>Refresh</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Full Scan</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1171,21 +1253,30 @@
 
 
     function renderEmailCategory(category) {
-      const title = category === "work" ? "Work Email" : "Personal Email";
+      const isRenewals = category === "renewals";
+      const title = isRenewals ? "Renewals" : (category === "work" ? "Work Email" : "Personal Email");
       const badge = "";
-      const note = category === "work"
-        ? "Only important, reply-worthy work emails from June 2026 onward are shown here, and they stay sorted with the newest at the top."
-        : "Only important, reply-worthy personal emails from June 2026 onward are shown here, and they stay sorted with the newest at the top.";
+      const note = isRenewals
+        ? "Account renewal requests are separated here so Work Email stays focused on regular student/customer replies."
+        : (category === "work"
+          ? "Only Pharmacy Prep, student, PEBC, course, login, order, renewal, and support related emails are shown here."
+          : "Everything actionable that is not Pharmacy Prep related is shown here, including agreements, contracts, documents, finance, and other personal items.");
 
       setHeader(title, badge, note);
       const list = document.getElementById("mainList");
       const emails = sortNewestFirst(
-        state.emails.filter(email => email.category === category),
+        state.emails.filter(email => {
+          if (isRenewals) return isRenewalEmail(email);
+          if (category === "work") return email.category === "work" && !isRenewalEmail(email);
+          if (category === "personal") return email.category === "personal" && !isRenewalEmail(email);
+          return false;
+        }),
         email => email.sort_ts || (email.original && email.original.date) || email.updated_at
       );
 
       if (!emails.length) {
-        list.innerHTML = `<div class="empty">No ${escapeHtml(category)} emails from June 2026 onward need a response right now. Click <strong>Refresh</strong> to check Gmail.</div>`;
+        const emptyLabel = isRenewals ? "renewal requests" : `${category} emails`;
+        list.innerHTML = `<div class="empty">No ${escapeHtml(emptyLabel)} need a response right now. Click <strong>Full Scan</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1277,13 +1368,18 @@
         ? "Review the order email and adjust the customer message before sending."
         : "Review the original email and adjust the response before sending.";
       document.getElementById("modalOriginal").textContent = `From: ${original.from || "Unknown sender"}\nDate: ${formatSimpleTime(original.date || "Unknown date")}\nSubject: ${original.subject || "No subject"}\n\n${cleanEmailFull(original.body || "No original body preview available.")}`;
-      document.getElementById("modalTo").textContent = reply.to || "Sender";
+      const toBox = document.getElementById("modalTo");
+      if (toBox) toBox.value = reply.to || "";
       document.getElementById("modalSubject").value = reply.subject || "Reply";
-      document.getElementById("modalBody").value = reply.body || "";
+      populateTemplateDropdown();
+      const templateSelect = document.getElementById("modalTemplateSelect");
+      if (templateSelect) templateSelect.value = "";
+      const bodyBox = document.getElementById("modalBody");
+      bodyBox.innerText = reply.body || "";
 
       document.getElementById("modalSendBtn").onclick = () => sendSuggestedReply(threadId);
       document.getElementById("replyModal").classList.add("open");
-      document.getElementById("modalBody").focus();
+      bodyBox.focus();
     }
 
     function closeReplyModal() {
@@ -1301,11 +1397,10 @@
     }
 
     function renderSummary() {
-      setHeader("AI Summary", "June 2026 onward", "A clean overview of what the latest scan found from June 2026 onward.");
-      const hasBriefing = state.briefing && !/No (summary|briefing) yet/i.test(state.briefing);
-      const friendly = hasBriefing
-        ? state.briefing.replaceAll("# Daily Gmail Briefing", "AI Summary").replaceAll("# AI Summary", "AI Summary")
-        : "No summary yet. Click Refresh to check emails from June 2026 onward.";
+      setHeader("AI Summary", "Daily review", "A clean overview of what the latest scan found.");
+      const friendly = state.briefing && !state.briefing.includes("No summary yet")
+        ? state.briefing.replaceAll("# Daily Gmail Briefing", "Daily Gmail Briefing")
+        : "No summary yet. Click Full Scan to review emails from June 1 onward.";
       document.getElementById("mainList").innerHTML = `<div class="briefing">${escapeHtml(friendly)}</div>`;
     }
 
@@ -1343,21 +1438,25 @@
     }
 
     async function refreshNow() {
-      await scanGmail({ silent: false, automatic: false, forceFull: false, showRefreshSpinner: true, buttonId: "refreshBtn" });
+      await scanGmail({ silent: false, automatic: false, forceFull: false });
     }
 
     async function fullScanNow() {
-      await scanGmail({ silent: false, automatic: false, forceFull: true, showRefreshSpinner: true, buttonId: "fullScanBtn" });
+      await scanGmail({ silent: false, automatic: false, forceFull: true });
     }
 
     function triggerInitialAutoScan() {
-      // Initial checking is handled by bootApp so the Refresh button can show a real loading state.
+      if (state.hasInitialAutoScan || state.automationSettings.auto_scan_enabled === false) return;
+      state.hasInitialAutoScan = true;
+      setTimeout(() => {
+        if (!state.isScanning) scanGmail({ silent: true, automatic: true });
+      }, 900);
     }
 
     function startAutoRefreshLoops() {
       if (!state.dashboardTimer) {
         state.dashboardTimer = setInterval(() => {
-          if (!state.isScanning) loadDashboard({ silent: true });
+          if (!state.isScanning) loadDashboard();
         }, 30000);
       }
 
@@ -1368,7 +1467,7 @@
 
       if (state.automationSettings.auto_scan_enabled !== false) {
         state.autoScanTimer = setInterval(() => {
-          if (!state.isScanning) scanGmail({ silent: true, automatic: true, showRefreshSpinner: false });
+          if (!state.isScanning) scanGmail({ silent: true, automatic: true, forceFull: false });
         }, intervalMs);
       }
     }
@@ -1376,29 +1475,18 @@
     async function scanGmail(options = {}) {
       if (state.isScanning) return;
       state.isScanning = true;
-      const showSpinner = options.showRefreshSpinner !== false;
-      const buttonId = options.buttonId || "refreshBtn";
-      const loadingText = options.forceFull ? "Running full scan from June 2026..." : "Checking for new emails...";
       try {
-        setLoading(true, loadingText, showSpinner, buttonId);
-        const data = await api("/api/scan", {
-          method: "POST",
-          body: JSON.stringify({ force_full: Boolean(options.forceFull) })
-        });
+        setLoading(true, options.forceFull ? "Full scanning Gmail from June 1, 2026..." : (options.automatic ? "Auto refreshing Gmail..." : "Refreshing Gmail..."));
+        const data = await api("/api/scan", { method: "POST", body: JSON.stringify({ force_full: Boolean(options.forceFull) }) });
         if (!options.silent) {
-          const checked = data.emails_checked ?? 0;
-          const accepted = data.emails_accepted ?? 0;
-          const renewals = data.renewal_added ?? 0;
-          const newerThan = data.incremental_newer_than && !data.full_scan ? ` Newer than ${formatSimpleTime(data.incremental_newer_than)}.` : "";
-          const label = data.full_scan ? "Full scan complete." : "Refresh complete.";
-          showToast(`${label}${newerThan} Checked ${checked} possible email threads, added ${accepted}, renewal requests ${renewals}, prepared ${data.suggested_replies || 0} suggested replies, auto-sent ${data.auto_orders_sent || 0} order welcomes.`);
+          showToast(`Scan complete. Prepared ${data.order_replies_waiting || 0} order replies for approval, skipped ${data.failed_orders_skipped || 0} failed orders, and prepared ${data.suggested_replies || 0} suggested replies.`);
         }
-        await loadDashboard({ silent: true });
+        await loadDashboard();
       } catch (error) {
-        if (!options.silent) showToast(error.message);
+        showToast(error.message);
       } finally {
         state.isScanning = false;
-        setLoading(false, "Ready", showSpinner, buttonId);
+        setLoading(false);
       }
     }
 
@@ -1408,9 +1496,16 @@
       const subject = modalOpen
         ? document.getElementById("modalSubject").value
         : (context && context.reply ? context.reply.subject : "Reply");
+      const to = modalOpen
+        ? (document.getElementById("modalTo") ? document.getElementById("modalTo").value : "")
+        : (context && context.reply ? context.reply.to : "");
+      const bodyBox = document.getElementById("modalBody");
       const body = modalOpen
-        ? document.getElementById("modalBody").value
+        ? (bodyBox.innerText || bodyBox.textContent || "")
         : (context && context.reply ? context.reply.body : "");
+      const body_html = modalOpen
+        ? (bodyBox.innerHTML || "")
+        : "";
 
       if (state.automationSettings.auto_reply_enabled === false) {
         showToast("Auto reply is off. Turn it on before sending replies.");
@@ -1421,24 +1516,10 @@
         setLoading(true, "Sending email...");
         const data = await api(`/api/replies/${threadId}/send`, {
           method: "POST",
-          body: JSON.stringify({ subject, body })
+          body: JSON.stringify({ to, subject, body, body_html })
         });
         closeReplyModal();
         showToast(data.message || "Email sent successfully.");
-        await loadDashboard();
-      } catch (error) {
-        showToast(error.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    async function removeSuggestedReply(threadId) {
-      try {
-        setLoading(true, "Removing suggestion...");
-        await api(`/api/replies/${threadId}`, { method: "DELETE" });
-        closeReplyModal();
-        showToast("Suggested reply removed.");
         await loadDashboard();
       } catch (error) {
         showToast(error.message);
@@ -1569,19 +1650,400 @@
       return formatEmailDateTime(value);
     }
 
-    async function bootApp() {
-      state.pageLoaded = false;
-      setRefreshButtonLoading(true);
+
+
+    // Final cleanup: keep renewals out of Work, remove submitted-question notices,
+    // and treat anything non-Pharmacy Prep as Personal on the frontend too.
+    function isIgnoredQuestionEmail(email) {
+      if (!email) return false;
+      const original = email.original || {};
+      const haystack = [
+        email.title || "",
+        email.important_reason || "",
+        email.status || "",
+        original.from || "",
+        original.subject || "",
+        original.body || ""
+      ].join(" ").toLowerCase().replace(/\s+/g, " ");
+      return haystack.includes("new question submitted")
+        || haystack.includes("new question submited")
+        || haystack.includes("new question has been submitted")
+        || haystack.includes("new question has been submited")
+        || haystack.includes("question submitted")
+        || haystack.includes("question submited")
+        || haystack.includes("new support question has been submitted at eprepstation.com")
+        || (haystack.includes("new support question") && haystack.includes("eprepstation"));
+    }
+
+    function isRenewalEmail(email) {
+      if (!email) return false;
+      const details = email.renewal_details || {};
+      const original = email.original || {};
+      const haystack = [
+        email.category || "",
+        email.title || "",
+        email.important_reason || "",
+        original.subject || "",
+        original.body || "",
+        details.course || "",
+        details.student_email || "",
+        details.email || ""
+      ].join(" ").toLowerCase();
+      return Boolean(email.is_renewal_request || email.renewal_request || email.category === "renewal" || haystack.includes("account renewal request"));
+    }
+
+    function isPharmacyPrepEmail(email) {
+      if (!email || isIgnoredQuestionEmail(email) || isRenewalEmail(email)) return false;
+      const original = email.original || {};
+      const from = (original.from || "").toLowerCase();
+      const text = [
+        email.title || "",
+        original.subject || "",
+        original.body || "",
+        original.from || ""
+      ].join(" ").toLowerCase().replace(/\s+/g, " ");
+
+      const personalDocTerms = [
+        "lease agreement", "rental agreement", "tenancy agreement", "lease copy", "agreement copy",
+        "contract", "agreement", "landlord", "tenant", "rent", "mortgage", "bank statement",
+        "insurance", "policy document", "legal document", "docusign", "adobe sign", "signed document"
+      ];
+      const coreWorkTerms = [
+        "pharmacy prep", "pharmacyprep", "eprepstation", "eprep station", "www.pharmacyprep.com",
+        "pebc", "evaluating exam", "qualifying exam", "osce", "ospe", "fpgee", "opra", "naplex",
+        "qbank", "question bank", "mock exam", "pharmacist qualifying", "pharmacy technician",
+        "prep course", "account renewal request", "course renewal"
+      ];
+      if (coreWorkTerms.some(term => text.includes(term))) return true;
+      if (from.includes("pharmacyprep.com") || from.includes("eprepstation.com")) return true;
+      if (personalDocTerms.some(term => text.includes(term))) return false;
+
+      const studentContext = ["student", "students", "enrolled", "enrollment", "registration"].some(term => text.includes(term));
+      const courseContext = ["course", "class", "lecture", "recording", "notes", "book", "login", "access", "password", "renewal", "extension"].some(term => text.includes(term));
+      const examContext = ["exam", "mcq", "osce", "ospe", "qbank", "mock", "pebc", "evaluating", "qualifying"].some(term => text.includes(term));
+      return (studentContext && (courseContext || examContext)) || (courseContext && examContext);
+    }
+
+    function visibleEmailPool() {
+      return (state.emails || []).filter(email => !isIgnoredQuestionEmail(email));
+    }
+
+    function updateStats() {
+      const pool = visibleEmailPool();
+      const ordersHandled = state.orders.filter(order => !order.reply).length;
+      const renewalEmails = pool.filter(isRenewalEmail).length;
+      const workEmails = pool.filter(email => !isRenewalEmail(email) && isPharmacyPrepEmail(email)).length;
+      const personalEmails = pool.filter(email => !isRenewalEmail(email) && !isPharmacyPrepEmail(email)).length;
+      const pendingReplies = (state.pendingReplies.length || state.orders.filter(order => order.reply).length + pool.filter(email => email.reply).length);
+
+      document.getElementById("ordersReplied").textContent = ordersHandled;
+      document.getElementById("pendingReplies").textContent = pendingReplies;
+      document.getElementById("workEmails").textContent = workEmails;
+      document.getElementById("personalEmails").textContent = personalEmails;
+
+      document.getElementById("pill-orders").textContent = state.orders.length || 0;
+      document.getElementById("pill-work").textContent = workEmails;
+      const renewalPill = document.getElementById("pill-renewals");
+      if (renewalPill) renewalPill.textContent = renewalEmails;
+      document.getElementById("pill-personal").textContent = personalEmails;
+    }
+
+    function renderEmailCategory(category) {
+      const isRenewals = category === "renewals";
+      const title = isRenewals ? "Renewals" : (category === "work" ? "Work Email" : "Personal Email");
+      const badge = "";
+      const note = isRenewals
+        ? "Account renewal requests are separated here so Work Email stays focused on regular student/customer replies."
+        : (category === "work"
+          ? "Only Pharmacy Prep, PEBC, EprepStation, student/course/exam/login/order/support emails are shown here."
+          : "Everything actionable that is not Pharmacy Prep related is shown here, including agreements, contracts, leases, documents, finance, and other personal items.");
+
+      setHeader(title, badge, note);
+      const list = document.getElementById("mainList");
+      const emails = sortNewestFirst(
+        visibleEmailPool().filter(email => {
+          if (isRenewals) return isRenewalEmail(email);
+          if (category === "work") return !isRenewalEmail(email) && isPharmacyPrepEmail(email);
+          if (category === "personal") return !isRenewalEmail(email) && !isPharmacyPrepEmail(email);
+          return false;
+        }),
+        email => email.sort_ts || (email.original && email.original.date) || email.updated_at
+      );
+
+      if (!emails.length) {
+        const emptyLabel = isRenewals ? "renewal requests" : `${category} emails`;
+        list.innerHTML = `<div class="empty">No ${escapeHtml(emptyLabel)} need a response right now. Click <strong>Full Scan</strong> to check Gmail.</div>`;
+        return;
+      }
+
+      list.innerHTML = emails.map(email => renderEmailCard(email)).join("");
+    }
+
+
+
+
+    // Final cleanup: hide GetSmarter/course promos, decode zwnj garbage, and render
+    // connected thread/forwarded-message cards both on the dashboard and in View.
+    function decodeHtmlEntitiesFinal(value) {
+      const el = document.createElement("textarea");
+      el.innerHTML = String(value ?? "");
+      return el.value;
+    }
+
+    function normalizeEmailText(value) {
+      return decodeHtmlEntitiesFinal(String(value ?? ""))
+        .replace(/&zwnj;|&#8204;|&#x200c;/gi, "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(/=\n/g, "")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/[\u00A0\u2000-\u200D\u202F\u2060]/g, " ")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{4,}/g, "\n\n\n")
+        .trim();
+    }
+
+    function isPromotionalNoiseEmail(email) {
+      if (!email || isRenewalEmail(email)) return false;
+      const original = email.original || {};
+      const haystack = [
+        email.category || "", email.title || "", email.important_reason || "", email.status || "",
+        original.from || "", original.subject || "", original.body || ""
+      ].join(" ").toLowerCase().replace(/\s+/g, " ");
+      const hardTerms = [
+        "getsmarter", "mitsloan@getsmarter.com", "mit sloan course team", "your moment to get ahead",
+        "now is your moment", "course team at getsmarter", "online short course", "short course",
+        "xbox", "game pass", "vimeo", "mail.vimeo", "email.vimeo", "jp morgan", "jpmorgan",
+        "j.p. morgan", "chase", "market update", "market insights", "wealth management",
+        "newsletter", "unsubscribe", "promotion", "promotional", "limited time", "special offer",
+        "exclusive offer", "discount", "coupon", "recommended for you", "watch now", "stream now",
+        "webinar", "register today", "join us for", "creator update", "gaming", "sponsored"
+      ];
+      return hardTerms.some(term => haystack.includes(term));
+    }
+
+    function visibleEmailPool() {
+      return (state.emails || []).filter(email => !isIgnoredQuestionEmail(email) && !isPromotionalNoiseEmail(email));
+    }
+
+    function isPharmacyPrepEmail(email) {
+      if (!email || isIgnoredQuestionEmail(email) || isRenewalEmail(email) || isPromotionalNoiseEmail(email)) return false;
+      const original = email.original || {};
+      const from = (original.from || "").toLowerCase();
+      const text = [
+        email.title || "", email.important_reason || "", original.subject || "", original.body || "", original.from || ""
+      ].join(" ").toLowerCase().replace(/\s+/g, " ");
+
+      const personalTerms = [
+        "lease", "lease agreement", "rental agreement", "tenancy", "landlord", "tenant", "rent",
+        "century21", "century 21", "c21.", "agreement copy", "copy of agreement", "contract",
+        "legal document", "lawyer", "attorney", "docusign", "adobe sign", "signed document",
+        "signature request", "bank statement", "insurance", "policy document", "mortgage", "cra", "tax",
+        "appointment", "medical", "doctor", "clinic"
+      ];
+      const coreWork = [
+        "pharmacy prep", "pharmacyprep", "eprepstation", "eprep station", "www.pharmacyprep.com",
+        "pebc", "evaluating exam", "qualifying exam", "osce", "ospe", "fpgee", "opra", "naplex",
+        "qbank", "question bank", "mock exam", "mock exams", "pharmacist qualifying", "pharmacy technician",
+        "prep course", "account renewal request", "course renewal", "home study plus online"
+      ];
+      if (from.includes("support@pharrmacyprep.com")) return false;
+      if (coreWork.some(term => text.includes(term))) return true;
+      if (from.includes("pharmacyprep.com") || from.includes("eprepstation.com")) return true;
+      if (personalTerms.some(term => text.includes(term))) return false;
+
+      const studentContext = ["student", "students", "enrolled", "enrollment", "enrolment", "registered", "registration", "customer"].some(term => text.includes(term));
+      const courseContext = ["course", "class", "lecture", "recording", "notes", "book", "login", "access", "password", "renewal", "extension", "materials"].some(term => text.includes(term));
+      const examContext = ["pebc", "exam", "mcq", "osce", "ospe", "qbank", "mock", "evaluating", "qualifying", "pharmacist", "pharmacy technician"].some(term => text.includes(term));
+      const orderContext = ["order number", "order #", "invoice", "receipt", "payment", "refund", "e-transfer", "etransfer"].some(term => text.includes(term));
+      return (studentContext && (courseContext || examContext || orderContext)) || (courseContext && examContext);
+    }
+
+    function findReplyContext(threadId) {
+      for (const order of state.orders) {
+        if (order.reply && String(order.reply.thread_id) === String(threadId)) {
+          return { type: "order", title: `Order #${order.order_number || "Unknown"}`, original: order.original || {}, reply: order.reply, item: order };
+        }
+      }
+      for (const email of state.emails) {
+        if (email.reply && String(email.reply.thread_id) === String(threadId)) {
+          return { type: email.category || "email", title: email.title || "Email reply", original: email.original || {}, reply: email.reply, item: email };
+        }
+      }
+      return null;
+    }
+
+    function parseForwardedChunk(raw, fallbackIndex) {
+      const text = cleanEmailFull(raw || "");
+      const lines = text.split("\n");
+      const meta = { from: "", to: "", date: "", subject: "" };
+      let bodyStart = 0;
+      for (let i = 0; i < Math.min(lines.length, 10); i++) {
+        const line = lines[i].trim();
+        const match = line.match(/^(From|To|Sent|Date|Subject):\s*(.*)$/i);
+        if (match) {
+          const key = match[1].toLowerCase() === "sent" ? "date" : match[1].toLowerCase();
+          meta[key] = match[2].trim();
+          bodyStart = i + 1;
+        } else if (line && bodyStart) {
+          break;
+        }
+      }
+      return {
+        label: `Forwarded message ${fallbackIndex}`,
+        direction: "Forwarded",
+        from: meta.from,
+        to: meta.to,
+        date: meta.date,
+        subject: meta.subject,
+        body: lines.slice(bodyStart).join("\n").trim() || text,
+        forwarded: true
+      };
+    }
+
+    function expandForwardedMessages(message) {
+      const body = cleanEmailFull(message.body || "");
+      const normalized = body.replace(/-{2,}\s*Forwarded Message\s*-{2,}/gi, "\n[[FORWARDED_MESSAGE]]\n");
+      let parts = normalized.split("[[FORWARDED_MESSAGE]]").map(p => p.trim()).filter(Boolean);
+      if (parts.length <= 1) {
+        const fromSentIndex = body.search(/\n\s*From:\s.+\n\s*(Sent|Date):\s/i);
+        if (fromSentIndex > 40) {
+          parts = [body.slice(0, fromSentIndex).trim(), body.slice(fromSentIndex).trim()].filter(Boolean);
+        }
+      }
+      if (parts.length <= 1) return [{ ...message, body }];
+      const output = [];
+      if (parts[0]) output.push({ ...message, body: parts[0] });
+      for (let i = 1; i < parts.length; i++) output.push(parseForwardedChunk(parts[i], i));
+      return output;
+    }
+
+    function timelineMessagesForItem(item) {
+      const original = item.original || {};
+      const rawHistory = Array.isArray(item.thread_history) ? item.thread_history : (Array.isArray(item.thread_messages) ? item.thread_messages : []);
+      let messages = rawHistory.length ? rawHistory.map((msg, idx) => ({
+        label: msg.label || `Email ${idx + 1} of ${rawHistory.length}`,
+        direction: msg.direction || "Email",
+        from: msg.from || "",
+        to: msg.to || "",
+        date: msg.date || "",
+        subject: msg.subject || original.subject || "No subject",
+        body: msg.body || ""
+      })) : [{
+        label: "Latest email",
+        direction: "Received",
+        from: original.from || "Unknown sender",
+        to: original.to || "",
+        date: original.date || "",
+        subject: original.subject || "No subject",
+        body: original.body || "No email content available."
+      }];
+      const expanded = [];
+      for (const msg of messages) expanded.push(...expandForwardedMessages(msg));
+      return expanded.filter(msg => cleanEmailFull(msg.body || "").trim() || msg.subject || msg.from);
+    }
+
+    function renderThreadTimeline(item, compact = false) {
+      const messages = timelineMessagesForItem(item);
+      if (!messages.length) return `<div class="empty">No email content available.</div>`;
+      return `<div class="thread-timeline">${messages.map((msg, index) => {
+        const label = msg.label || `Email ${index + 1} of ${messages.length}`;
+        const direction = msg.direction || (msg.forwarded ? "Forwarded" : "Email");
+        const body = cleanEmailFull(msg.body || "No body available.");
+        return `
+          <div class="thread-node">
+            <div class="thread-dot"></div>
+            <div class="thread-card-ui">
+              <div class="thread-card-head">
+                <div><div class="thread-card-title">${escapeHtml(label)}</div><div>${escapeHtml(direction)}</div></div>
+                <div class="thread-card-date">${escapeHtml(formatSimpleTime(msg.date || ""))}</div>
+              </div>
+              ${msg.forwarded ? `<div class="forward-chip">Forwarded message</div>` : ""}
+              <div class="thread-card-meta"><strong>From:</strong> ${escapeHtml(msg.from || "Unknown sender")}${msg.to ? `<br><strong>To:</strong> ${escapeHtml(msg.to)}` : ""}</div>
+              <div class="thread-card-subject">Subject: ${escapeHtml(msg.subject || "No subject")}</div>
+              <div class="thread-card-body ${compact ? "compact" : ""}">${escapeHtml(body)}</div>
+            </div>
+          </div>`;
+      }).join("")}</div>`;
+    }
+
+    function renderEmailCard(email) {
+      const reply = email.reply;
+      const original = email.original || {};
+      return `
+        <article class="card">
+          <div class="card-top">
+            <div>
+              <h3 class="card-title">${escapeHtml(email.title || "Email")}</h3>
+              ${email.important_reason ? `<div class="summary" style="margin-top:12px; margin-bottom:0;">${escapeHtml(email.important_reason)}</div>` : ""}
+            </div>
+            ${reply ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(reply.thread_id)}')">View</button>` : `<span class="badge green">${escapeHtml(email.status || "Handled")}</span>`}
+          </div>
+          <div class="meta">
+            <strong>From:</strong> ${escapeHtml(original.from || "Unknown sender")}<br>
+            <strong>Date:</strong> ${escapeHtml(formatSimpleTime(original.date || "Unknown date"))}<br>
+            <strong>Status:</strong> ${escapeHtml(email.status || (reply ? "Needs Reply" : "Handled"))}
+          </div>
+          <div class="email-pair">
+            <div class="email-box">
+              <div class="box-title original">Thread History</div>
+              <div class="box-body thread-box-body">${renderThreadTimeline(email, true)}</div>
+            </div>
+            <div class="email-box">
+              ${reply ? renderReplyPreview(reply) : `<div class="box-title response">Reply</div><div class="box-body">${renderNoReply(email)}</div>`}
+            </div>
+          </div>
+          ${reply ? `<div class="card-actions"><button class="success" onclick="sendSuggestedReply('${escapeForJs(reply.thread_id)}')">Send Email</button></div>` : ""}
+        </article>`;
+    }
+
+    function renderReplyPreview(reply) {
+      return `<div class="box-title response">Response</div><div class="box-body reply-preview-clean">${escapeHtml(cleanEmailPreview(reply.body || "No reply preview available."))}</div>`;
+    }
+
+    async function openReplyModal(threadId) {
+      const context = findReplyContext(threadId);
+      if (!context || !context.reply) {
+        showToast("Could not open this reply. Refresh and try again.");
+        return;
+      }
+      state.currentModalThreadId = String(threadId);
+      const reply = context.reply || {};
+      const modalOriginal = document.getElementById("modalOriginal");
+      document.getElementById("modalTitle").textContent = context.title;
+      document.getElementById("modalSubtitle").textContent = context.type === "order"
+        ? "Review the order email and adjust the customer message before sending."
+        : "Review the full thread history and adjust the response before sending.";
+      modalOriginal.innerHTML = renderThreadTimeline(context.item || { original: context.original || {} }, false);
+      const toBox = document.getElementById("modalTo");
+      if (toBox) toBox.value = reply.to || "";
+      document.getElementById("modalSubject").value = reply.subject || "Reply";
+      populateTemplateDropdown();
+      const templateSelect = document.getElementById("modalTemplateSelect");
+      if (templateSelect) templateSelect.value = "";
+      const bodyBox = document.getElementById("modalBody");
+      bodyBox.innerText = cleanEmailPreview(reply.body || "");
+      document.getElementById("modalSendBtn").onclick = () => sendSuggestedReply(threadId);
+      document.getElementById("replyModal").classList.add("open");
+      bodyBox.focus();
+
       try {
-        await loadDashboard({ silent: true, showRefreshSpinner: true });
-        await scanGmail({ silent: true, automatic: true, forceFull: false, showRefreshSpinner: true });
-      } finally {
-        state.pageLoaded = true;
-        setRefreshButtonLoading(false);
+        const data = await api(`/api/threads/${threadId}/history`);
+        if (data && Array.isArray(data.thread_history) && data.thread_history.length) {
+          const refreshed = { ...(context.item || {}), original: context.original || {}, thread_history: data.thread_history };
+          modalOriginal.innerHTML = renderThreadTimeline(refreshed, false);
+        }
+      } catch (error) {
+        // Keep the saved thread preview if live Gmail history is unavailable.
       }
     }
 
-    bootApp();
+
+    loadDashboard();
   </script>
 </body>
 </html>
