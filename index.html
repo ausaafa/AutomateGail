@@ -2047,6 +2047,40 @@
     }
 
 
+
+    // Targeted category display fix: use backend category first, but correct obvious Pharmacy Prep work items
+    // and obvious personal/office/property items at the UI layer too.
+    function targetNorm(...parts) {
+      return parts.map(v => String(v || "")).join(" ").replace(/&zwnj;/gi, " ").replace(/[\u200b\u200c]/g, " ").replace(/\s+/g, " ").toLowerCase().trim();
+    }
+
+    function targetFrontendCategory(email) {
+      if (!email) return "personal";
+      if (isRenewalEmail(email)) return "renewal";
+      const original = email.original || {};
+      const latestText = targetNorm(original.from, original.subject, original.body, email.title, email.important_reason);
+      const personalTerms = ["pest", "pest control", "lease", "lease agreement", "rental agreement", "tenancy", "landlord", "tenant", "rent", "condo", "apartment", "building management", "property management", "management office", "maintenance", "contractor", "century21", "real estate", "mortgage", "bank statement", "insurance", "legal document", "lawyer", "attorney", "contract", "agreement", "docusign", "adobe sign", "signed document", "appointment", "doctor", "clinic", "dental", "office notice", "parking", "hydro", "utilities"];
+      const workDirect = ["pharmacy prep", "pharmacyprep", "www.pharmacyprep.com", "success@pharmacyprep.com", "eprepstation", "eprep station", "pebc", "pebc ee", "ee course", "evaluating exam", "qualifying exam", "osce", "ospe", "mcq", "qbank", "question bank", "mock exam", "prep course", "renewed prep course", "renewed course", "course renewal", "course extension", "online account access", "course access", "course login", "class notes", "recorded videos", "interactive lectures", "pharmacy technician"];
+      const hasPersonal = personalTerms.some(t => latestText.includes(t));
+      const hasDirectWork = workDirect.some(t => latestText.includes(t));
+      const hasCourse = ["course", "class", "lecture", "recording", "notes", "login", "access", "password", "book", "materials", "online account"].some(t => latestText.includes(t));
+      const hasExam = ["pebc", "exam", "ee", "evaluating", "qualifying", "mock", "qbank", "mcq", "osce", "pharmacist"].some(t => latestText.includes(t));
+      const hasStudent = ["student", "candidate", "enrolled", "registration", "customer"].some(t => latestText.includes(t));
+      if (hasPersonal && !hasDirectWork) return "personal";
+      if (hasDirectWork || (hasExam && (hasCourse || hasStudent)) || (latestText.includes("ee") && hasCourse)) return "work";
+      return email.category === "work" ? "work" : "personal";
+    }
+
+    const _oldVisibleEmailPoolTarget = visibleEmailPool;
+    visibleEmailPool = function() {
+      return _oldVisibleEmailPoolTarget().map(email => {
+        if (!email) return email;
+        const copy = { ...email };
+        copy.category = targetFrontendCategory(copy);
+        return copy;
+      });
+    };
+
     loadDashboard();
   </script>
 </body>
