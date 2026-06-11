@@ -2279,6 +2279,45 @@
     }
 
 
+    // Final order UI patch: no manual Check Sent button. The backend already checks Gmail Sent automatically.
+    function renderOrders() {
+      setHeader("Orders", "", "Orders are checked against Gmail Sent automatically. If no enrollment or welcome confirmation was found, the Send button appears.");
+      const list = document.getElementById("mainList");
+      const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
+      if (!orders.length) {
+        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Full Scan</strong> to check Gmail.</div>`;
+        return;
+      }
+      list.innerHTML = orders.map(order => {
+        const isWaiting = Boolean(order.reply);
+        const reply = order.reply || {};
+        const threadId = reply.thread_id || order.thread_id || "";
+        const statusLabel = isWaiting ? "Waiting to Send" : (order.status || "Already Replied");
+        const note = order.sent_check_note || order.auto_send_error || "";
+        return `
+          <article class="card order-card-simple">
+            <div class="card-top">
+              <div>
+                <h3 class="card-title">Order #${escapeHtml(order.order_number || "Unknown")}</h3>
+                <div class="meta order-meta">
+                  <strong>Customer:</strong> ${escapeHtml(order.customer_name || "Unknown")}<br>
+                  <strong>Email:</strong> ${escapeHtml(order.customer_email || "Unknown")}<br>
+                  ${order.total ? `<strong>Total:</strong> ${escapeHtml(order.total)}<br>` : ""}
+                  <strong>Status:</strong> ${escapeHtml(statusLabel)}<br>
+                  ${note ? `<strong>Gmail Sent:</strong> ${escapeHtml(note)}<br>` : ""}
+                  <strong>Updated:</strong> ${formatDate(order.sort_ts || order.processed_at || (order.original && order.original.date))}
+                </div>
+              </div>
+              ${isWaiting
+                ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(threadId)}')">Send</button>`
+                : `<span class="badge green">${escapeHtml(statusLabel)}</span>`}
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+
     loadDashboard();
   </script>
 </body>
