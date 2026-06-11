@@ -11362,6 +11362,620 @@ def _auto_send_order_if_safe(service, thread: Dict, connected_email: str, order_
         return order_item, False
 
 
+# ---------------------------------------------------------------------
+# FINAL ORDER PATCH: successful-order only + thorough Sent detection + real auto-send
+# ---------------------------------------------------------------------
+# Order welcome emails are now handled independently from the general Auto Reply
+# switch because new paid/successful orders must get the welcome/enrollment email
+# automatically, but only after Gmail Sent is checked thoroughly to avoid duplicates.
+ORDER_AUTOSEND_THOROUGH_VERSION = "2026-06-order-autosend-thorough-v3"
+AUTO_SEND_ORDER_WELCOME = os.getenv("AUTO_SEND_ORDER_WELCOME", "true").strip().lower() not in ("0", "false", "no", "off")
+ORDER_AI_MODEL = os.getenv("OPENAI_ORDER_MODEL", os.getenv("OPENAI_FAST_MODEL", "gpt-4.1-nano"))
+_ORDER_AUTOSEND_SESSION_KEYS = set()
+
+
+def _order_clean(value: str) -> str:
+    try:
+        return _final_clean_text(value)
+    except Exception:
+        return re.sub(r"\s+", " ", str(value or "").lower()).strip()
+
+
+def _order_text_looks_failed(order_text: str) -> bool:
+    text = _order_clean(order_text)
+    if not text:
+        return False
+    failure_phrases = [
+        "order status changed from pending payment to failed",
+        "order status changed to failed",
+        "status changed to failed",
+        "payment failed",
+        "failed payment",
+        "payment was unsuccessful",
+        "payment unsuccessful",
+        "transaction failed",
+        "card was declined",
+        "declined payment",
+        "order failed",
+        "failed order",
+        "status: failed",
+        "order status: failed",
+        "this order is now failed",
+        "unsuccessful order",
+        "cancelled order",
+        "canceled order",
+        "order cancelled",
+        "order canceled",
+    ]
+    if any(p in text for p in failure_phrases):
+        return True
+    if "failed" in text and any(w in text for w in ["payment", "transaction", "order status", "status", "order #", "new order"]):
+        success_terms = ["payment successful", "successful payment", "paid successfully", "completed order", "processing order"]
+        return not any(s in text for s in success_terms)
+    return False
+
+
+def _order_text_looks_successful(order_text: str) -> bool:
+    text = _order_clean(order_text)
+    if not text or _order_text_looks_failed(order_text):
+        return False
+    success_markers = [
+        "you've received the following order",
+        "you’ve received the following order",
+        "received the following order from",
+        "new order:",
+        "billing address",
+        "payment method:",
+        "customer details",
+        "order details",
+        "total:",
+    ]
+    return looks_like_order_email(order_text) and sum(1 for m in success_markers if m in text) >= 2
+
+
+def _sent_message_target_match(email: Dict, customer_email: str) -> bool:
+    target = (customer_email or "").lower().strip()
+    if not target:
+        return False
+    fields = "\n".join([email.get("to", ""), email.get("body", "")[:1000]]).lower()
+    return target in fields
+
+
+def _sent_message_from_our_side(email: Dict, connected_email: str = "") -> bool:
+    sender = parseaddr(email.get("from", ""))[1].lower().strip()
+    connected = (connected_email or DEFAULT_CONNECTED_EMAIL or "").lower().strip()
+    if connected and sender == connected:
+        return True
+    return sender.endswith("@pharmacyprep.com") or "pharmacyprep.com" in sender
+
+
+def _sent_email_to_customer(email: Dict, connected_email: str, customer_email: str) -> bool:
+    return _sent_message_from_our_side(email, connected_email) and _sent_message_target_match(email, customer_email)
+
+
+def _sent_message_is_enrollment_confirmation(email: Dict, order_number: str = "") -> bool:
+    text = _order_clean(f"{email.get('subject','')}\n{email.get('body','')}")
+    order_number = str(order_number or "").strip().lower()
+    if not text:
+        return False
+    negative_terms = [
+        "failed", "declined", "unsuccessful", "cancelled", "canceled", "refund issued",
+        "delivery status notification", "undeliverable", "mail delivery failed",
+    ]
+    if any(term in text for term in negative_terms) and not any(term in text for term in ["not failed", "no failed"]):
+        return False
+    strong_phrases = [
+        "welcome to pharmacy prep",
+        "thank you for your order",
+        "we received your order",
+        "received your order",
+        "your order has been received",
+        "we will enroll you",
+        "we will enrol you",
+        "enroll you in the prep course",
+        "enrol you in the prep course",
+        "enrolled you in the prep course",
+        "enrolment is completed",
+        "enrollment is completed",
+        "course login details",
+        "login details by email",
+        "course access details",
+        "online account access",
+        "your online account",
+        "access to your course",
+        "prep course shortly",
+        "welcome. renewed prep course",
+        "renewed prep course",
+    ]
+    if any(phrase in text for phrase in strong_phrases):
+        return True
+    if order_number and order_number != "unknown" and order_number in text:
+        order_context = any(term in text for term in ["order", "welcome", "received", "thank you"])
+        enrollment_context = any(term in text for term in ["enroll", "enrol", "course", "prep", "login", "access", "account", "pharmacy prep"])
+        if order_context and enrollment_context:
+            return True
+    return False
+
+
+def _sent_message_is_possible_confirmation(email: Dict, customer_email: str, order_number: str = "") -> bool:
+    text = _order_clean(f"{email.get('subject','')}\n{email.get('body','')}")
+    order_number = str(order_number or "").strip().lower()
+    possible_terms = [
+        "pharmacy prep", "pharmacyprep", "welcome", "order", "course", "login", "access",
+        "account", "enroll", "enrol", "prep", "received", "thank you", "online", "renewed",
+    ]
+    if order_number and order_number != "unknown" and order_number in text:
+        return True
+    return sum(1 for term in possible_terms if term in text) >= 2
+
+
+def _ai_sent_message_confirms_enrollment(email: Dict, customer_email: str, order_number: str = "") -> bool:
+    text = clean_preview_text(f"Subject: {email.get('subject','')}\n\n{email.get('body','')}", 6000)
+    if not text or not OPENAI_API_KEY:
+        return False
+    prompt = f'''
+You are checking whether a Gmail Sent message is an enrollment/welcome/order-received confirmation for a Pharmacy Prep student order.
+
+Return JSON only:
+{{"is_confirmation": true, "reason": "brief reason"}}
+
+Mark true only if the sent email tells the customer that Pharmacy Prep received their order, will enroll/enrol them, has enrolled/enroled them, will send/login access/course details, or otherwise confirms course/access/enrollment for the order.
+Mark false for receipts only, invoices only, newsletters, unrelated replies, failed/cancelled orders, or generic messages that do not confirm order/enrollment/access.
+
+Customer email: {customer_email}
+Order number: {order_number or 'unknown'}
+Sent message:
+{text}
+'''
+    try:
+        response = client.responses.create(model=ORDER_AI_MODEL, input=prompt)
+        parsed = parse_ai_json(response.output_text.strip())
+        return bool(isinstance(parsed, dict) and parsed.get("is_confirmation") is True)
+    except Exception as error:
+        print(f"[orders] AI sent-confirm check failed | to={customer_email} | order={order_number or 'unknown'} | error={error}", flush=True)
+        return False
+
+
+def _order_sent_search_queries(customer_email: str, order_number: str = "") -> List[str]:
+    customer_email = (customer_email or "").strip()
+    order_number = str(order_number or "").strip()
+    if not customer_email:
+        return []
+    queries = [
+        f'in:sent newer_than:365d to:{customer_email}',
+        f'in:sent newer_than:365d "{customer_email}"',
+    ]
+    if order_number and order_number.lower() != "unknown":
+        queries.extend([
+            f'in:sent newer_than:365d to:{customer_email} "{order_number}"',
+            f'in:sent newer_than:365d "{customer_email}" "{order_number}"',
+            f'in:sent newer_than:365d "{order_number}"',
+        ])
+    return queries
+
+
+def _order_sent_evidence(service, customer_email: str, order_number: str = "") -> Dict:
+    customer_email = (customer_email or "").strip()
+    order_number = str(order_number or "").strip()
+    result = {
+        "confirmed": False,
+        "method": "not_found",
+        "note": "No enrollment/welcome confirmation found in Gmail Sent.",
+        "thread_id": "",
+        "message_subject": "",
+        "checked_threads": 0,
+        "ai_checked": 0,
+    }
+    if not customer_email:
+        result["method"] = "missing_customer_email"
+        result["note"] = "Missing customer email, so Gmail Sent could not be checked."
+        return result
+    try:
+        connected_email = get_connected_email(service)
+    except Exception:
+        connected_email = DEFAULT_CONNECTED_EMAIL
+
+    sent_thread_ids = []
+    seen = set()
+    for query in _order_sent_search_queries(customer_email, order_number):
+        try:
+            for tid in search_threads(service, query=query, max_results=30):
+                if tid not in seen:
+                    seen.add(tid)
+                    sent_thread_ids.append(tid)
+        except Exception as error:
+            print(f"[orders] sent search failed | query={query} | error={error}", flush=True)
+    result["checked_threads"] = len(sent_thread_ids)
+
+    ai_candidates = []
+    for sent_thread_id in sent_thread_ids[:60]:
+        try:
+            sent_thread = read_thread(service, sent_thread_id)
+        except Exception as error:
+            print(f"[orders] sent read failed | to={customer_email} | thread={sent_thread_id} | error={error}", flush=True)
+            continue
+        for email in sent_thread.get("emails", []):
+            if not _sent_email_to_customer(email, connected_email, customer_email):
+                continue
+            if _sent_message_is_enrollment_confirmation(email, order_number):
+                subject = email.get("subject", "")
+                print(f"[orders] sent confirmation found | to={customer_email} | order={order_number or 'unknown'} | thread={sent_thread_id} | subject={subject}", flush=True)
+                return {
+                    **result,
+                    "confirmed": True,
+                    "method": "gmail_text",
+                    "note": "Enrollment/welcome confirmation found in Gmail Sent.",
+                    "thread_id": sent_thread_id,
+                    "message_subject": subject,
+                }
+            if _sent_message_is_possible_confirmation(email, customer_email, order_number):
+                ai_candidates.append((sent_thread_id, email))
+
+    for sent_thread_id, email in ai_candidates[:4]:
+        result["ai_checked"] += 1
+        if _ai_sent_message_confirms_enrollment(email, customer_email, order_number):
+            subject = email.get("subject", "")
+            print(f"[orders] sent confirmation found by AI | to={customer_email} | order={order_number or 'unknown'} | thread={sent_thread_id} | subject={subject}", flush=True)
+            return {
+                **result,
+                "confirmed": True,
+                "method": "gmail_api_openai",
+                "note": "Enrollment/welcome confirmation found in Gmail Sent using Gmail API + OpenAI review.",
+                "thread_id": sent_thread_id,
+                "message_subject": subject,
+                "ai_checked": result["ai_checked"],
+            }
+
+    print(f"[orders] sent confirmation NOT found | to={customer_email} | order={order_number or 'unknown'} | checked_threads={result['checked_threads']} | ai_checked={result['ai_checked']}", flush=True)
+    return result
+
+
+def _order_welcome_sent_confirmed(service, customer_email: str, order_number: str = "") -> bool:
+    return bool(_order_sent_evidence(service, customer_email, order_number).get("confirmed"))
+
+
+def was_order_message_already_sent(service, customer_email: str, order_number: str) -> bool:
+    return _order_welcome_sent_confirmed(service, customer_email, order_number)
+
+
+def build_order_item(service, thread: Dict, connected_email: str) -> Optional[Dict]:
+    order_text = get_best_order_email_text(thread)
+    if not order_text or not _thread_is_on_or_after_scan_start(thread, connected_email):
+        return None
+
+    latest = latest_inbound_email_for_dashboard(thread, connected_email)
+    order_number = extract_order_number(order_text) or "Unknown"
+    customer_email = extract_customer_email(order_text, connected_email) or ""
+    customer_name = best_customer_name(order_text, customer_email)
+    total = extract_total(order_text) or ""
+    products = extract_product_lines(order_text)
+    thread_id = thread.get("thread_id", "")
+    sort_ts = latest_inbound_sort_key(thread, connected_email) or email_date_to_sort_key(latest.get("date", ""))
+
+    if _order_text_looks_failed(order_text):
+        print(f"[orders] failed order ignored | order={order_number} | to={customer_email or 'unknown'} | thread={thread_id}", flush=True)
+        return {
+            "thread_id": thread_id,
+            "order_number": order_number,
+            "customer_name": customer_name,
+            "customer_email": customer_email or "Unknown",
+            "total": total,
+            "products": products,
+            "processed_at": latest.get("date", "") or datetime.now().isoformat(timespec="seconds"),
+            "sort_ts": sort_ts,
+            "status": "Failed Order",
+            "reply": None,
+            "order_failed": True,
+            "order_successful": False,
+            "filtered_out": True,
+            "sent_check_status": "failed_order",
+            "sent_check_note": "Failed/cancelled order notification ignored. No welcome email will be sent.",
+            "original": {
+                "from": latest.get("from", ""),
+                "to": latest.get("to", ""),
+                "date": latest.get("date", ""),
+                "subject": latest.get("subject", ""),
+                "body": clean_preview_text(latest.get("body", ""), 1800),
+            },
+        }
+
+    if not _order_text_looks_successful(order_text):
+        print(f"[orders] order needs review | order={order_number} | to={customer_email or 'unknown'} | reason=no clear successful order markers", flush=True)
+        return {
+            "thread_id": thread_id,
+            "order_number": order_number,
+            "customer_name": customer_name,
+            "customer_email": customer_email or "Unknown",
+            "total": total,
+            "products": products,
+            "processed_at": latest.get("date", "") or datetime.now().isoformat(timespec="seconds"),
+            "sort_ts": sort_ts,
+            "status": "Needs Review",
+            "reply": None,
+            "order_failed": False,
+            "order_successful": False,
+            "sent_check_status": "needs_review",
+            "sent_check_note": "Order email was not clearly successful; no automatic welcome was sent.",
+            "original": {
+                "from": latest.get("from", ""),
+                "to": latest.get("to", ""),
+                "date": latest.get("date", ""),
+                "subject": latest.get("subject", ""),
+                "body": clean_preview_text(latest.get("body", ""), 1800),
+            },
+        }
+
+    subject, body = build_order_welcome_email(customer_name, order_number)
+    evidence = _order_sent_evidence(service, customer_email, order_number) if customer_email and order_number.lower() != "unknown" else {"confirmed": False, "method": "missing_data", "note": "Missing customer email or order number."}
+
+    if evidence.get("confirmed"):
+        status = "Already Replied"
+        reply = None
+        reply_sent_at = _safe_iso_now()
+        sent_status = evidence.get("method", "confirmed")
+        sent_note = evidence.get("note", "Enrollment/welcome confirmation found in Gmail Sent.")
+    elif customer_email and order_number and str(order_number).lower() != "unknown":
+        status = "Waiting to Send"
+        reply = {"thread_id": thread_id, "mode": "new_email", "to": customer_email, "subject": subject, "body": body}
+        reply_sent_at = ""
+        sent_status = "not_found"
+        sent_note = evidence.get("note", "No enrollment/welcome confirmation found in Gmail Sent.")
+    else:
+        status = "Needs Review"
+        reply = None
+        reply_sent_at = ""
+        sent_status = "missing_data"
+        sent_note = "Missing customer email or order number."
+
+    return {
+        "thread_id": thread_id,
+        "order_number": order_number,
+        "customer_name": customer_name,
+        "customer_email": customer_email or "Unknown",
+        "total": total,
+        "products": products,
+        "processed_at": latest.get("date", "") or datetime.now().isoformat(timespec="seconds"),
+        "sort_ts": sort_ts,
+        "status": status,
+        "reply": reply,
+        "reply_sent_at": reply_sent_at,
+        "order_failed": False,
+        "order_successful": True,
+        "sent_check_status": sent_status,
+        "sent_check_note": sent_note,
+        "sent_check_thread_id": evidence.get("thread_id", ""),
+        "sent_check_subject": evidence.get("message_subject", ""),
+        "order_autosend_patch_version": ORDER_AUTOSEND_THOROUGH_VERSION,
+        "original": {
+            "from": latest.get("from", ""),
+            "to": latest.get("to", ""),
+            "date": latest.get("date", ""),
+            "subject": latest.get("subject", ""),
+            "body": clean_preview_text(latest.get("body", ""), 1800),
+        },
+    }
+
+
+def _auto_send_order_if_safe(service, thread: Dict, connected_email: str, order_item: Dict) -> Tuple[Dict, bool]:
+    order_text = get_best_order_email_text(thread) or ""
+    order_number = str(order_item.get("order_number") or extract_order_number(order_text) or "").strip()
+    customer_email = (order_item.get("customer_email") or extract_customer_email(order_text, connected_email) or "").strip()
+    if customer_email.lower() == "unknown":
+        customer_email = ""
+    customer_name = order_item.get("customer_name") or best_customer_name(order_text, customer_email)
+    order_key = f"{order_number.lower()}|{customer_email.lower()}"
+
+    if order_item.get("order_failed") or _order_text_looks_failed(order_text):
+        order_item = {**order_item, "status": "Failed Order", "reply": None, "filtered_out": True, "order_failed": True, "sent_check_status": "failed_order", "sent_check_note": "Failed/cancelled order notification ignored. No welcome email will be sent."}
+        print(f"[orders] auto-send blocked | order={order_number or 'unknown'} | to={customer_email or 'unknown'} | reason=failed order", flush=True)
+        return order_item, False
+
+    if not _order_text_looks_successful(order_text):
+        order_item = {**order_item, "status": "Needs Review", "reply": None, "sent_check_status": "needs_review", "sent_check_note": "Order email was not clearly successful; no automatic welcome was sent."}
+        print(f"[orders] auto-send blocked | order={order_number or 'unknown'} | to={customer_email or 'unknown'} | reason=not clearly successful", flush=True)
+        return order_item, False
+
+    if not customer_email or not order_number or order_number.lower() == "unknown":
+        order_item = {**order_item, "status": "Needs Review", "reply": None, "auto_send_error": "Missing customer email or order number.", "sent_check_status": "missing_data", "sent_check_note": "Missing customer email or order number."}
+        print(f"[orders] auto-send blocked | order={order_number or 'unknown'} | reason=missing customer email/order number", flush=True)
+        return order_item, False
+
+    if order_key in _ORDER_AUTOSEND_SESSION_KEYS:
+        order_item = {**order_item, "status": "Already Replied", "reply": None, "reply_sent_at": order_item.get("reply_sent_at") or _safe_iso_now(), "sent_check_status": "sent_this_session", "sent_check_note": "Welcome email was already sent during this app session."}
+        print(f"[orders] auto-send skipped | order={order_number} | to={customer_email} | reason=already sent this session", flush=True)
+        return order_item, False
+
+    evidence = _order_sent_evidence(service, customer_email, order_number)
+    if evidence.get("confirmed"):
+        order_item = {**order_item, "status": "Already Replied", "reply": None, "reply_sent_at": order_item.get("reply_sent_at") or _safe_iso_now(), "sent_check_status": evidence.get("method", "confirmed"), "sent_check_note": evidence.get("note", "Enrollment/welcome confirmation found in Gmail Sent."), "sent_check_thread_id": evidence.get("thread_id", ""), "sent_check_subject": evidence.get("message_subject", "")}
+        upsert_processed_order(order_number, {"customer_email": customer_email, "customer_name": customer_name, "status": "Already Replied", "total": order_item.get("total", ""), "products": order_item.get("products", []), "order_autosend_patch_version": ORDER_AUTOSEND_THOROUGH_VERSION})
+        print(f"[orders] auto-send skipped | order={order_number} | to={customer_email} | reason=Gmail Sent confirmation exists", flush=True)
+        return order_item, False
+
+    subject, body = build_order_welcome_email(customer_name, order_number)
+    if not AUTO_SEND_ORDER_WELCOME:
+        order_item = {**order_item, "status": "Waiting to Send", "reply": {"thread_id": thread.get("thread_id", ""), "mode": "new_email", "to": customer_email, "subject": subject, "body": body}, "sent_check_status": "not_found", "sent_check_note": "No enrollment/welcome confirmation found in Gmail Sent. Auto-send is disabled by AUTO_SEND_ORDER_WELCOME."}
+        print(f"[orders] manual send ready | order={order_number} | to={customer_email} | reason=auto send disabled", flush=True)
+        return order_item, False
+
+    try:
+        sent = send_new_email(service, customer_email, subject, body)
+        sent_id = sent.get("id", "") if isinstance(sent, dict) else ""
+        sent_at = _safe_iso_now()
+        _ORDER_AUTOSEND_SESSION_KEYS.add(order_key)
+        order_item = {**order_item, "status": "Sent Automatically", "reply": None, "reply_sent_at": sent_at, "sent_message_id": sent_id, "sent_check_status": "sent_now", "sent_check_note": "Welcome email sent automatically after Gmail Sent confirmed no duplicate.", "order_autosend_patch_version": ORDER_AUTOSEND_THOROUGH_VERSION}
+        mark_thread_action_processed(thread_action_key(thread, connected_email), "order_auto_sent", sent_id, order_number=order_number, order_autosend_patch_version=ORDER_AUTOSEND_THOROUGH_VERSION)
+        upsert_processed_order(order_number, {"customer_email": customer_email, "customer_name": customer_name, "status": "Sent Automatically", "sent_message_id": sent_id, "sent_at": sent_at, "total": order_item.get("total", ""), "products": order_item.get("products", []), "order_autosend_patch_version": ORDER_AUTOSEND_THOROUGH_VERSION})
+        print(f"[orders] AUTO EMAIL SENT | order={order_number} | to={customer_email} | sent_id={sent_id}", flush=True)
+        return order_item, True
+    except Exception as error:
+        order_item = {**order_item, "status": "Waiting to Send", "auto_send_error": str(error), "sent_check_status": "send_failed", "sent_check_note": "Automatic send failed; manual send is available.", "reply": {"thread_id": thread.get("thread_id", ""), "mode": "new_email", "to": customer_email, "subject": subject, "body": body}}
+        print(f"[orders] AUTO EMAIL FAILED | order={order_number} | to={customer_email} | error={error}", flush=True)
+        return order_item, False
+
+
+def _order_item_key(item: Dict) -> str:
+    number = str(item.get("order_number") or "").lower().strip()
+    email = str(item.get("customer_email") or "").lower().strip()
+    if number and number != "unknown":
+        return f"{number}|{email}"
+    return f"thread|{item.get('thread_id','')}"
+
+
+def _order_item_priority(item: Dict) -> int:
+    if item.get("filtered_out") or item.get("order_failed") or str(item.get("status", "")).lower() == "failed order":
+        return 0
+    status = str(item.get("status", "")).lower()
+    if status in ("sent automatically", "already replied", "sent from dashboard") or item.get("sent_message_id"):
+        return 5
+    if item.get("reply"):
+        return 4
+    if status == "waiting to send":
+        return 3
+    if status == "needs review":
+        return 2
+    return 1
+
+
+def _is_catalog_order_visible(item: Dict) -> bool:
+    if not _item_is_on_or_after_scan_start(item):
+        return False
+    text = _order_clean(_catalog_text(item))
+    if item.get("filtered_out") or item.get("order_failed") or str(item.get("status", "")).lower() == "failed order" or _order_text_looks_failed(text):
+        return False
+    return True
+
+
+def _dedupe_visible_orders(orders: List[Dict]) -> List[Dict]:
+    best = {}
+    for item in orders:
+        if not _is_catalog_order_visible(item):
+            continue
+        key = _order_item_key(item)
+        current = best.get(key)
+        if not current:
+            best[key] = item
+            continue
+        item_score = (_order_item_priority(item), _catalog_sort_key(item))
+        current_score = (_order_item_priority(current), _catalog_sort_key(current))
+        if item_score > current_score:
+            best[key] = item
+    output = list(best.values())
+    output.sort(key=_catalog_sort_key, reverse=True)
+    return output
+
+
+def _renewal_visible_count(emails: List[Dict]) -> int:
+    if "_item_renewal_details" not in globals():
+        return 0
+    return len([email for email in emails if _item_renewal_details(email)])
+
+
+def build_dashboard_payload(force_refresh: bool = False) -> Dict:
+    if not force_refresh and _dashboard_cache["payload"] and (time.time() - _dashboard_cache["built_at"] < DASHBOARD_CACHE_TTL_SECONDS):
+        return deepcopy(_dashboard_cache["payload"])
+
+    catalog = get_dashboard_catalog()
+    meta = catalog.get("meta", {})
+    connected_email = meta.get("connected_email") or DEFAULT_CONNECTED_EMAIL
+
+    orders = _dedupe_visible_orders(list(catalog.get("orders", {}).values()))
+    emails = [item for item in catalog.get("emails", {}).values() if _is_catalog_email_visible(item)]
+    emails.sort(key=_catalog_sort_key, reverse=True)
+
+    briefing = build_daily_briefing(connected_email, orders, emails)
+    pending_reply_ids = [item["thread_id"] for item in emails if item.get("reply")] + [item["thread_id"] for item in orders if item.get("reply")]
+    orders_replied = len([order for order in orders if not order.get("reply")])
+
+    payload = {
+        "ok": True,
+        "connected_email": connected_email,
+        "orders": orders,
+        "emails": emails,
+        "pending_replies": pending_reply_ids,
+        "briefing": briefing,
+        "automation_settings": {**get_automation_settings(), "last_auto_scan_at": meta.get("last_successful_scan_at", "")},
+        "stats": {
+            "orders_replied": orders_replied,
+            "pending_replies": len(pending_reply_ids),
+            "work_emails": len([email for email in emails if email.get("category") == "work"]),
+            "personal_emails": len([email for email in emails if email.get("category") == "personal"]),
+            "renewal_emails": _renewal_visible_count(emails),
+        },
+    }
+    _dashboard_cache["built_at"] = time.time()
+    _dashboard_cache["payload"] = deepcopy(payload)
+    return payload
+
+
+# Override manual send for orders so it uses the same Gmail Sent evidence and failed-order safety.
+def api_send_reply(thread_id: str):
+    try:
+        service = get_gmail_service()
+        connected_email = get_connected_email(service)
+        body_json = request.get_json(silent=True) or {}
+        to_override = _clean_email_address(body_json.get("to", "")) if "_clean_email_address" in globals() else (body_json.get("to", "") or "").strip()
+        subject = (body_json.get("subject") or "").strip()
+        reply_body = (body_json.get("body") or "").strip()
+
+        item = get_catalog_item("emails", thread_id)
+        details = _item_renewal_details(item) if "_item_renewal_details" in globals() else None
+        if details and item.get("reply"):
+            reply = item.get("reply", {})
+            to_email = to_override or details.get("student_email") or reply.get("to")
+            clean_to = _clean_email_address(to_email) if "_clean_email_address" in globals() else str(to_email or "").strip()
+            if not clean_to:
+                raise ValueError("Please enter a valid recipient email address.")
+            subject = subject or reply.get("subject") or f"Account renewal request - {details['course']}"
+            reply_body = _professionalize_reply_body(reply_body or reply.get("body") or _renewal_reply_body(details["student_name"], details["course"]), "work")
+            sent = send_new_email(service, clean_to, subject, reply_body)
+            upsert_catalog_item("emails", thread_id, {**item, "status": "Already Replied", "reply": None, "reply_sent_at": _safe_iso_now(), "sent_message_id": sent.get("id", "")})
+            mark_thread_action_processed(thread_id, "frontend_reply_sent", sent.get("id", ""), renewal_request=True)
+            invalidate_dashboard_cache()
+            return jsonify({"ok": True, "message": "Email sent successfully.", "sent": sent})
+
+        thread = read_thread(service, thread_id)
+        thread_key = thread_action_key(thread, connected_email)
+        order_text = get_best_order_email_text(thread)
+        if order_text:
+            order_number = extract_order_number(order_text) or "Unknown"
+            customer_email = to_override or extract_customer_email(order_text, connected_email)
+            clean_to = _clean_email_address(customer_email) if "_clean_email_address" in globals() else str(customer_email or "").strip()
+            if _order_text_looks_failed(order_text):
+                raise ValueError("This order notification looks failed/cancelled, so no welcome email was sent.")
+            if not _order_text_looks_successful(order_text):
+                raise ValueError("This order email is not clearly successful. Please verify payment before sending a welcome email.")
+            if not clean_to:
+                raise ValueError("Please enter a valid recipient email address.")
+            evidence = _order_sent_evidence(service, clean_to, order_number)
+            if evidence.get("confirmed"):
+                sent = {"id": "already-replied"}
+                upsert_processed_order(order_number, {"customer_email": clean_to, "customer_name": best_customer_name(order_text, clean_to), "status": "Already Replied", "order_autosend_patch_version": ORDER_AUTOSEND_THOROUGH_VERSION})
+                upsert_catalog_item("orders", thread_id, {"status": "Already Replied", "reply": None, "reply_sent_at": _safe_iso_now(), "sent_check_status": evidence.get("method", "confirmed"), "sent_check_note": evidence.get("note", "Enrollment/welcome confirmation found in Gmail Sent."), "sent_check_thread_id": evidence.get("thread_id", "")})
+                return jsonify({"ok": True, "message": "A matching welcome/enrollment email already exists in Gmail Sent.", "sent": sent})
+            if not subject or not reply_body:
+                customer_name = best_customer_name(order_text, clean_to)
+                default_subject, default_body = build_order_welcome_email(customer_name, order_number)
+                subject = subject or default_subject
+                reply_body = reply_body or default_body
+            sent = send_new_email(service, clean_to, subject, _professionalize_reply_body(reply_body, "work"))
+            upsert_processed_order(order_number, {"customer_email": clean_to, "customer_name": best_customer_name(order_text, clean_to), "status": "Sent from Dashboard", "sent_message_id": sent.get("id", ""), "sent_at": _safe_iso_now(), "order_autosend_patch_version": ORDER_AUTOSEND_THOROUGH_VERSION})
+            upsert_catalog_item("orders", thread_id, {"status": "Already Replied", "reply": None, "reply_sent_at": _safe_iso_now(), "sent_message_id": sent.get("id", ""), "sent_check_status": "sent_now", "sent_check_note": "Welcome email sent manually."})
+        else:
+            if "_send_thread_reply_with_to" in globals():
+                sent = _send_thread_reply_with_to(service, thread, connected_email, to_override, subject, reply_body)
+            else:
+                sent = send_frontend_thread_reply(service, thread, connected_email, subject, reply_body)
+            upsert_catalog_item("emails", thread_id, {"status": "Already Replied", "reply": None, "reply_sent_at": _safe_iso_now()})
+        mark_thread_action_processed(thread_key, "frontend_reply_sent", sent.get("id", ""))
+        invalidate_dashboard_cache()
+        return jsonify({"ok": True, "message": "Email sent successfully.", "sent": sent})
+    except GmailAuthRequired:
+        return _json_gmail_auth_required()
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 500
+app.view_functions["api_send_reply"] = api_send_reply
+
 if __name__ == "__main__":
     print("\nPharmacy Prep Gmail Assistant is starting...")
     port = int(os.getenv("PORT", "5050"))
