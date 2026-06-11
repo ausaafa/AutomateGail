@@ -2153,6 +2153,132 @@
     };
 
 
+
+    // Final order manual-check patch: Auto Reply off by default, manual sends allowed,
+    // and each order can verify Gmail Sent before being treated as already replied.
+    state.automationSettings.auto_reply_enabled = false;
+
+    function syncKillSwitchButton() {
+      const button = document.getElementById("killSwitchBtn");
+      const enabled = state.automationSettings.auto_reply_enabled === true;
+      button.textContent = enabled ? "Auto Reply: On" : "Auto Reply: Off";
+      button.classList.toggle("off", !enabled);
+      button.title = enabled
+        ? "Automatic order sending is allowed during scans. Manual Send still works either way."
+        : "Automatic order sending is off. Manual Send still works from the dashboard.";
+    }
+
+    async function checkOrderSent(threadId) {
+      try {
+        setLoading(true, "Checking Gmail Sent...");
+        const data = await api(`/api/orders/${threadId}/check-sent`, { method: "POST", body: JSON.stringify({}) });
+        showToast(data.message || (data.found ? "Welcome email found in Sent." : "No matching welcome email found. Ready for manual send."));
+        await loadDashboard();
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function renderOrders() {
+      setHeader("Orders", "", "Orders stay visible here. Auto Reply controls automatic sending only; use Check Sent to verify Gmail Sent, or Reply to send manually.");
+      const list = document.getElementById("mainList");
+      const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
+      if (!orders.length) {
+        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Full Scan</strong> to check Gmail.</div>`;
+        return;
+      }
+      list.innerHTML = orders.map(order => {
+        const isWaiting = Boolean(order.reply);
+        const reply = order.reply || {};
+        const threadId = reply.thread_id || order.thread_id || "";
+        const statusLabel = isWaiting ? "Waiting to Send" : (order.status || "Already Replied");
+        const note = order.sent_check_note || order.auto_send_note || order.auto_send_error || "";
+        return `
+          <article class="card order-card-simple">
+            <div class="card-top">
+              <div>
+                <h3 class="card-title">Order #${escapeHtml(order.order_number || "Unknown")}</h3>
+                <div class="meta order-meta">
+                  <strong>Customer:</strong> ${escapeHtml(order.customer_name || "Unknown")}<br>
+                  <strong>Email:</strong> ${escapeHtml(order.customer_email || "Unknown")}<br>
+                  ${order.total ? `<strong>Total:</strong> ${escapeHtml(order.total)}<br>` : ""}
+                  <strong>Status:</strong> ${escapeHtml(statusLabel)}<br>
+                  ${note ? `<strong>Check:</strong> ${escapeHtml(note)}<br>` : ""}
+                  <strong>Updated:</strong> ${formatDate(order.sort_ts || order.processed_at || (order.original && order.original.date))}
+                </div>
+              </div>
+              <div style="display:flex; gap:9px; flex-wrap:wrap; justify-content:flex-end;">
+                ${isWaiting ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(threadId)}')">Reply</button>` : `<span class="badge green">${escapeHtml(statusLabel)}</span>`}
+                ${threadId ? `<button class="secondary" type="button" onclick="checkOrderSent('${escapeForJs(threadId)}')">Check Sent</button>` : ""}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function sendSuggestedReply(threadId) {
+      const modalOpen = document.getElementById("replyModal").classList.contains("open") && String(state.currentModalThreadId) === String(threadId);
+      const context = findReplyContext(threadId);
+      const subject = modalOpen
+        ? document.getElementById("modalSubject").value
+        : (context && context.reply ? context.reply.subject : "Reply");
+      const to = modalOpen
+        ? (document.getElementById("modalTo") ? document.getElementById("modalTo").value : "")
+        : (context && context.reply ? context.reply.to : "");
+      const bodyBox = document.getElementById("modalBody");
+      const body = modalOpen
+        ? (bodyBox.innerText || bodyBox.textContent || "")
+        : (context && context.reply ? context.reply.body : "");
+      const body_html = modalOpen ? (bodyBox.innerHTML || "") : "";
+      try {
+        setLoading(true, "Sending email...");
+        const data = await api(`/api/replies/${threadId}/send`, {
+          method: "POST",
+          body: JSON.stringify({ to, subject, body, body_html })
+        });
+        closeReplyModal();
+        showToast(data.message || "Email sent successfully.");
+        await loadDashboard();
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function finalHasWorkSignal(text, sender = "") {
+      text = finalCleanText(text);
+      sender = String(sender || "").toLowerCase();
+      const direct = [
+        "pharmacy prep", "pharmacyprep", "www.pharmacyprep.com", "success@pharmacyprep.com",
+        "eprepstation", "eprep station", "online exam prep station", "pebc", "pebc ee",
+        "ee course", "ee prep", "ee preparation", "ee classes", "ee class", "ee exam",
+        "evaluating exam", "evaluating examination", "evaluating exam course", "evaluating exam prep",
+        "evaluating exam preparation", "pebc evaluating exam", "pebc evaluating examination",
+        "qualifying exam", "qualifying examination", "pharmacist evaluating", "pharmacist qualifying",
+        "osce", "ospe", "mcq", "qbank", "question bank", "mock exam", "mock exams",
+        "prep course", "renewed prep course", "renewed course", "welcome. renewed prep course",
+        "course renewal", "course extension", "online account access", "online account",
+        "course access", "course login", "class notes", "recorded video", "recorded videos",
+        "live online", "interactive lectures", "pharmacy technician", "home study plus online"
+      ];
+      if (sender.includes("pharmacyprep.com") || sender.includes("eprepstation.com")) return true;
+      if (direct.some(t => text.includes(t))) return true;
+      const hasCourse = ["course", "class", "lecture", "recording", "notes", "login", "access", "password", "book", "books", "materials", "module", "online account", "prep", "renewed"].some(t => text.includes(t));
+      const hasExam = ["pebc", "exam", "evaluating", "qualifying", "mock", "qbank", "mcq", "osce", "ospe", "pharmacist", "technician"].some(t => text.includes(t));
+      const hasStudent = ["student", "candidate", "enrolled", "enrollment", "enrolment", "registered", "registration", "customer"].some(t => text.includes(t));
+      const hasOrder = ["order number", "order #", "invoice", "receipt", "payment", "refund", "paid", "e-transfer", "etransfer"].some(t => text.includes(t));
+      if (finalHasWordEE(text) && (hasCourse || hasExam || hasStudent || hasOrder || text.includes("prep"))) return true;
+      if (hasExam && (hasCourse || hasStudent || hasOrder || text.includes("prep"))) return true;
+      if (hasCourse && (text.includes("pharmacy") || text.includes("prep") || text.includes("pebc") || hasStudent)) return true;
+      if ((text.includes("renewed") || text.includes("renewal") || text.includes("extension")) && (text.includes("prep") || text.includes("course") || text.includes("account"))) return true;
+      return false;
+    }
+
+
     loadDashboard();
   </script>
 </body>
