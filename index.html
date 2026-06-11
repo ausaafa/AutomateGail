@@ -2081,6 +2081,78 @@
       });
     };
 
+    // Final quick display patch: keep EE/PEBC/Pharmacy Prep work out of Personal,
+    // keep non-Pharmacy Prep personal items out of Work, and keep renewals separate.
+    function finalCleanText(...parts) {
+      return parts.map(v => String(v || "")).join(" ")
+        .replace(/&zwnj;/gi, " ")
+        .replace(/[\u200b\u200c\u00a0]/g, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .toLowerCase()
+        .trim();
+    }
+
+    function finalHasWordEE(text) {
+      return /\bee\b/i.test(String(text || ""));
+    }
+
+    function finalHasWorkSignal(text, sender = "") {
+      text = finalCleanText(text);
+      sender = String(sender || "").toLowerCase();
+      const direct = [
+        "pharmacy prep", "pharmacyprep", "www.pharmacyprep.com", "success@pharmacyprep.com",
+        "eprepstation", "eprep station", "online exam prep station", "pebc", "pebc ee",
+        "ee course", "ee prep", "ee preparation", "evaluating exam", "evaluating examination",
+        "qualifying exam", "qualifying examination", "pharmacist evaluating", "pharmacist qualifying",
+        "osce", "ospe", "mcq", "qbank", "question bank", "mock exam", "mock exams",
+        "prep course", "renewed prep course", "renewed course", "welcome. renewed prep course",
+        "course renewal", "account renewal request", "course extension", "online account access",
+        "online account", "course access", "course login", "class notes", "recorded video",
+        "recorded videos", "live online", "interactive lectures", "pharmacy technician",
+        "home study plus online", "pebc evaluating", "pebc qualifying"
+      ];
+      if (sender.includes("pharmacyprep.com") || sender.includes("eprepstation.com")) return true;
+      if (direct.some(t => text.includes(t))) return true;
+      const hasCourse = ["course", "class", "lecture", "recording", "notes", "login", "access", "password", "book", "books", "materials", "module", "online account", "prep"].some(t => text.includes(t));
+      const hasExam = ["pebc", "exam", "evaluating", "qualifying", "mock", "qbank", "mcq", "osce", "ospe", "pharmacist", "technician"].some(t => text.includes(t));
+      const hasStudent = ["student", "candidate", "enrolled", "enrollment", "enrolment", "registered", "registration", "customer"].some(t => text.includes(t));
+      const hasOrder = ["order number", "order #", "invoice", "receipt", "payment", "refund", "paid", "e-transfer", "etransfer"].some(t => text.includes(t));
+      if (finalHasWordEE(text) && (hasCourse || hasExam || hasStudent || hasOrder || text.includes("prep"))) return true;
+      if (hasExam && (hasCourse || hasStudent || hasOrder || text.includes("prep"))) return true;
+      if (hasCourse && (text.includes("pharmacy") || text.includes("prep") || text.includes("pebc") || hasStudent)) return true;
+      if ((text.includes("renewed") || text.includes("renewal") || text.includes("extension")) && (text.includes("prep") || text.includes("course") || text.includes("account"))) return true;
+      return false;
+    }
+
+    function finalHasPersonalSignal(text) {
+      text = finalCleanText(text);
+      return ["pest", "pest control", "exterminator", "lease", "lease agreement", "rental agreement", "tenancy", "landlord", "tenant", "rent", "condo", "apartment", "building management", "property management", "management office", "maintenance", "unit key", "master key", "contractor", "century21", "real estate", "mortgage", "bank statement", "insurance", "policy document", "legal document", "lawyer", "attorney", "contract", "agreement", "docusign", "adobe sign", "signed document", "signature request", "appointment", "doctor", "clinic", "dental", "office notice", "parking", "hydro", "utilities"].some(t => text.includes(t));
+    }
+
+    function finalFrontendCategory(email) {
+      if (!email) return "personal";
+      if (isRenewalEmail(email)) return "renewal";
+      const original = email.original || {};
+      const text = finalCleanText(email.title, email.important_reason, original.from, original.subject, original.body);
+      const sender = String(original.from || "").toLowerCase();
+      if (frontendPromoNoise(email) || isIgnoredQuestionEmail(email)) return "hidden";
+      if (finalHasWorkSignal(text, sender)) return "work";
+      if (finalHasPersonalSignal(text)) return "personal";
+      return "personal";
+    }
+
+    const previousVisibleEmailPoolForFinal = visibleEmailPool;
+    visibleEmailPool = function() {
+      return previousVisibleEmailPoolForFinal().map(email => {
+        if (!email) return email;
+        const copy = { ...email };
+        copy.category = finalFrontendCategory(copy);
+        return copy;
+      }).filter(email => email && email.category !== "hidden");
+    };
+
+
     loadDashboard();
   </script>
 </body>
