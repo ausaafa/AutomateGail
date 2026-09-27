@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>success@pharmacyprep.com</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Pharmacy Prep · Inbox</title>
 
   <style>
     :root {
-      --bg: #f4f5f7;
+      --bg: #f5f5f5;
       --panel: #ffffff;
       --text: #070707;
       --muted: #343434;
-      --line: #d0d5dd;
+      --line: #d5d5d5;
       --soft: #f7f7f7;
       --black: #050505;
       --black-soft: #f1f1f1;
@@ -19,13 +19,13 @@
       --blue-soft: #f1f1f1;
       --green: #050505;
       --green-soft: #f1f1f1;
-      --red: #b42318;
-      --red-soft: #fff5f5;
-      --amber: #92400e;
-      --amber-soft: #fffbeb;
+      --red: #414141;
+      --red-soft: #f7f7f7;
+      --amber: #4e4e4e;
+      --amber-soft: #fbfbfb;
       --purple: #050505;
       --purple-soft: #f1f1f1;
-      --shadow: 0 12px 28px rgba(16, 24, 40, 0.10);
+      --shadow: 0 12px 28px rgba(23, 23, 23, 0.10);
       --radius: 6px;
       --page-gutter: 20px;
     }
@@ -134,7 +134,7 @@
     .primary { background: var(--black); color: white; }
     .secondary { background: white; border: 1px solid var(--black); color: var(--black); }
     .success { background: var(--black); color: white; }
-    .danger { background: var(--red-soft); color: var(--red); border: 1px solid #fecdd3; }
+    .danger { background: var(--red-soft); color: var(--red); border: 1px solid #d8d8d8; }
 
     .kill-switch {
       border: 1px solid var(--black);
@@ -146,13 +146,13 @@
     .kill-switch.off {
       background: var(--red-soft);
       color: var(--red);
-      border-color: #fda4af;
+      border-color: #b8b8b8;
     }
 
     .panel {
       min-width: 0;
-      background: rgba(255,255,255,.96);
-      border: 1px solid rgba(255,255,255,.95);
+      background: rgba(255, 255, 255, .96);
+      border: 1px solid rgba(255, 255, 255, .95);
       box-shadow: var(--shadow);
       border-radius: var(--radius);
       padding: 18px;
@@ -174,7 +174,7 @@
     .spinner {
       width: 17px;
       height: 17px;
-      border: 3px solid #e5e7eb;
+      border: 3px solid #e7e7e7;
       border-top-color: var(--black);
       border-radius: 50%;
       animation: spin .8s linear infinite;
@@ -276,7 +276,7 @@
       padding: 0 9px;
       border-radius: 5px;
       background: #ededed;
-      color: #344054;
+      color: #3f3f3f;
       font-size: 13px;
       font-weight: 950;
     }
@@ -335,7 +335,7 @@
     .modal-email-body,
     .modal-grid {
       scrollbar-width: auto;
-      scrollbar-color: #050505 #e5e7eb;
+      scrollbar-color: #050505 #e7e7e7;
     }
 
     .list::-webkit-scrollbar,
@@ -354,7 +354,7 @@
     .reply-preview::-webkit-scrollbar-track,
     .modal-email-body::-webkit-scrollbar-track,
     .modal-grid::-webkit-scrollbar-track {
-      background: #e5e7eb;
+      background: #e7e7e7;
       border-radius: 999px;
     }
 
@@ -366,7 +366,7 @@
     .modal-grid::-webkit-scrollbar-thumb {
       background: #050505;
       border-radius: 999px;
-      border: 3px solid #e5e7eb;
+      border: 3px solid #e7e7e7;
     }
 
     .card {
@@ -401,15 +401,15 @@
       font-size: 12px;
       font-weight: 950;
       white-space: nowrap;
-      background: #f2f4f7;
-      color: #344054;
-      border: 1px solid #e4e7ec;
+      background: #f4f4f4;
+      color: #3f3f3f;
+      border: 1px solid #e7e7e7;
     }
 
-    .badge.green { background: var(--green-soft); color: var(--green); border-color: #abefc6; }
+    .badge.green { background: var(--green-soft); color: var(--green); border-color: #dedede; }
     .badge.blue { background: var(--black-soft); color: var(--black); border-color: var(--black); }
-    .badge.purple { background: var(--purple-soft); color: var(--purple); border-color: #d9d6fe; }
-    .badge.red { background: var(--red-soft); color: var(--red); border-color: #fecdd3; }
+    .badge.purple { background: var(--purple-soft); color: var(--purple); border-color: #dadada; }
+    .badge.red { background: var(--red-soft); color: var(--red); border-color: #d8d8d8; }
 
     #sectionBadge { display: none; }
 
@@ -425,7 +425,7 @@
     .summary {
       padding: 14px;
       border-radius: 10px;
-      background: #f8fafc;
+      background: #fafafa;
       border: 1px solid var(--line);
       font-weight: 750;
       line-height: 1.55;
@@ -444,20 +444,20 @@
       border-radius: 6px;
       border: 1px solid var(--line);
       overflow: hidden;
-      background: #fcfcfd;
+      background: #fcfcfc;
       min-width: 0;
     }
 
     .box-title {
       padding: 12px 14px;
-      background: #f9fafb;
+      background: #fafafa;
       border-bottom: 1px solid var(--line);
       font-weight: 950;
       font-size: 14px;
     }
 
     .box-title.response { color: var(--black); }
-    .box-title.original { color: #344054; }
+    .box-title.original { color: #3f3f3f; }
 
     .box-body {
       padding: 18px;
@@ -473,7 +473,7 @@
       font-weight: 750;
     }
 
-    .compact-line { margin-bottom: 12px; color: #344054; }
+    .compact-line { margin-bottom: 12px; color: #3f3f3f; }
 
     .reply-subject {
       width: 100%;
@@ -544,7 +544,7 @@
       justify-content: space-between;
       gap: 10px;
       padding: 12px 14px;
-      background: #f9fafb;
+      background: #fafafa;
       border-bottom: 1px solid var(--line);
       font-weight: 950;
       font-size: 14px;
@@ -561,9 +561,9 @@
     .briefing {
       white-space: pre-wrap;
       line-height: 1.7;
-      color: #344054;
+      color: #3f3f3f;
       font-weight: 650;
-      background: #f8fafc;
+      background: #fafafa;
       border: 1px solid var(--line);
       border-radius: 6px;
       padding: 17px;
@@ -572,8 +572,8 @@
     .empty {
       padding: 18px;
       border-radius: 6px;
-      border: 1px dashed #98a2b3;
-      background: #f8fafc;
+      border: 1px dashed #a1a1a1;
+      background: #fafafa;
       color: var(--muted);
       font-weight: 800;
       line-height: 1.6;
@@ -585,7 +585,7 @@
       bottom: 22px;
       display: none;
       max-width: 480px;
-      background: #101828;
+      background: #171717;
       color: white;
       padding: 15px 17px;
       border-radius: 6px;
@@ -604,7 +604,7 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background: rgba(15, 23, 42, .48);
+      background: rgba(23, 23, 23, .48);
       backdrop-filter: blur(5px);
       z-index: 120;
     }
@@ -616,7 +616,7 @@
       max-height: 92vh;
       background: white;
       border-radius: 8px;
-      box-shadow: 0 24px 70px rgba(15, 23, 42, .32);
+      box-shadow: 0 24px 70px rgba(23, 23, 23, .32);
       border: 1px solid var(--line);
       display: flex;
       flex-direction: column;
@@ -630,7 +630,7 @@
       gap: 18px;
       padding: 22px 24px;
       border-bottom: 1px solid var(--line);
-      background: #fbfcff;
+      background: #fcfcfc;
     }
 
     .modal-title {
@@ -650,7 +650,7 @@
     .modal-close {
       background: white;
       border: 1px solid var(--line);
-      color: #344054;
+      color: #3f3f3f;
       border-radius: 4px;
       padding: 10px 13px;
     }
@@ -669,13 +669,13 @@
       border: 1px solid var(--line);
       border-radius: 6px;
       overflow: hidden;
-      background: #fcfcfd;
+      background: #fcfcfc;
     }
 
     .modal-section-title {
       padding: 14px 16px;
       border-bottom: 1px solid var(--line);
-      background: #f9fafb;
+      background: #fafafa;
       font-weight: 950;
     }
 
@@ -698,7 +698,7 @@
     }
 
     .modal-label {
-      color: #344054;
+      color: #3f3f3f;
       font-weight: 950;
       font-size: 13px;
       margin-bottom: -5px;
@@ -706,7 +706,7 @@
 
     .modal-to {
       padding: 12px 13px;
-      background: #f8fafc;
+      background: #fafafa;
       border: 1px solid var(--line);
       border-radius: 4px;
       color: #050505;
@@ -756,7 +756,7 @@
 
     .template-hint {
       margin-top: -6px;
-      color: #475467;
+      color: #535353;
       font-weight: 750;
       font-size: 12px;
       line-height: 1.35;
@@ -778,7 +778,7 @@
       gap: 10px;
       padding: 16px 24px;
       border-top: 1px solid var(--line);
-      background: #fbfcff;
+      background: #fcfcfc;
     }
 
 
@@ -792,53 +792,6 @@
     .box-body.reply-preview-clean { min-height: 260px; }
     .summary, .briefing, .section-note, .meta, .connected, .stat-label { color: #111111; }
     .box-title.response, .response-head { color: #050505; }
-
-    @media (max-width: 1120px) {
-      html, body { overflow-y: auto; overflow-x: hidden; }
-      .shell {
-        width: 100vw;
-        max-width: none;
-        height: auto;
-        min-height: 100dvh;
-        margin: 0;
-        padding: var(--page-gutter);
-        display: flex;
-        flex-direction: column;
-        overflow: visible;
-      }
-      .workspace {
-        height: auto;
-        grid-template-columns: 1fr;
-        overflow: visible;
-      }
-      .left-rail {
-        height: auto;
-        overflow: visible;
-      }
-      .sidebar { grid-template-columns: repeat(4, 1fr); }
-      .stats {
-        height: auto;
-        grid-template-columns: repeat(4, 1fr);
-        grid-template-rows: none;
-        overflow: visible;
-      }
-      .main-panel {
-        height: min(680px, calc(100dvh - 40px));
-      }
-      .email-pair { grid-template-columns: 1fr; }
-      .modal-grid { grid-template-columns: 1fr; }
-    }
-
-    @media (max-width: 760px) {
-      :root { --page-gutter: 12px; }
-      .shell { width: 100vw; }
-      .topbar { align-items: flex-start; flex-direction: column; }
-      .actions { width: 100%; display: grid; grid-template-columns: 1fr; }
-      button { width: 100%; }
-      .sidebar { grid-template-columns: 1fr; }
-      .stats { grid-template-columns: 1fr; }
-      .section-head { align-items: flex-start; flex-direction: column; }
-    }
 
     /* Final thread-review UI patch */
     .modal {
@@ -874,23 +827,23 @@
     }
 
     .thread-message {
-      border: 1px solid #d0d5dd;
+      border: 1px solid #d5d5d5;
       border-left: 5px solid #111111;
       background: #ffffff;
       border-radius: 7px;
       overflow: hidden;
-      box-shadow: 0 6px 16px rgba(15, 23, 42, .06);
+      box-shadow: 0 6px 16px rgba(23, 23, 23, .06);
     }
 
     .thread-message.sent {
-      border-left-color: #667085;
+      border-left-color: #6f6f6f;
       background: #fbfbfb;
     }
 
     .thread-message-head {
       padding: 12px 14px;
-      border-bottom: 1px solid #eaecf0;
-      background: #f8fafc;
+      border-bottom: 1px solid #ececec;
+      background: #fafafa;
       display: grid;
       gap: 7px;
     }
@@ -914,17 +867,17 @@
     .thread-direction {
       font-size: 12px;
       font-weight: 950;
-      border: 1px solid #d0d5dd;
+      border: 1px solid #d5d5d5;
       background: #ffffff;
       border-radius: 999px;
       padding: 4px 9px;
-      color: #344054;
+      color: #3f3f3f;
     }
 
     .thread-meta {
       font-size: 13px;
       line-height: 1.45;
-      color: #1f2937;
+      color: #282828;
       font-weight: 750;
       word-break: break-word;
     }
@@ -941,34 +894,230 @@
     }
 
     .thread-loading {
-      border: 1px dashed #cbd5e1;
-      background: #f8fafc;
+      border: 1px dashed #d4d4d4;
+      background: #fafafa;
       border-radius: 7px;
       padding: 14px;
-      color: #344054;
+      color: #3f3f3f;
       font-weight: 850;
     }
 
-  </style>
+
+    /* Responsive workspace: keep these rules after the legacy desktop styles. */
+    :root { --bg:#f6f6f6; --text:#282828; --muted:#626262; --line:#e1e1e1; --black:#363636; --black-soft:#f2f2f2; --shadow:0 6px 24px rgba(48, 48, 48, .055); --radius:16px; }
+    html { scrollbar-gutter:auto; }
+    body { font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .shell { width:100%; }
+    .brand { display:block; }
+    .brand-caption { display:block; font-size:10px; font-weight:750; letter-spacing:.15em; color:#6c6c6c; margin-bottom:5px; }
+    .connected { color:var(--text); font-size:clamp(16px,1.65vw,24px); font-weight:700; letter-spacing:-.025em; }
+    .panel,.card,.modal,.modal-section,.email-box,.empty,.toast,.stat { border-radius:14px; }
+    .panel { border:1px solid var(--line); }
+    button,.nav-btn,.modal-input,.modal-textarea,.template-select,.modal-close,.expand-btn { border-radius:10px; font-weight:650; }
+    .primary,.success,.expand-btn { background:#363636; border-color:#363636; }
+    .primary:hover,.success:hover,.expand-btn:hover { background:#4f4f4f; }
+    .secondary { border-color:var(--line); color:var(--text); }
+    button { transition:transform .16s ease,background .16s ease,box-shadow .16s ease; touch-action:manipulation; }
+    button:active:not(:disabled) { transform:scale(.96); }
+    :focus-visible { outline:3px solid #6e6e6e; outline-offset:3px; }
+    .nav-btn { border-color:transparent; }
+    .nav-btn.active { border-color:#d0d0d0; background:#f2f2f2; }
+    .pill { border-radius:8px; }
+    .section-head h2 { font-size:28px; font-weight:750; }
+    .section-note,.meta,.summary,.briefing { font-weight:450; }
+    .card-title { font-size:21px; font-weight:700; overflow-wrap:anywhere; }
+    .card-top > div { min-width:0; }
+    .box-body,.reply-preview,.reply-preview-clean,.modal-email-body,.modal-textarea { font-size:16px; font-weight:400; line-height:1.65; overflow-wrap:anywhere; }
+    .box-body,.box-body.reply-preview-clean,.reply-preview { min-height:150px; max-height:260px; }
+    .thread-message-body { font-weight:400; overflow-wrap:anywhere; }
+    .modal-title,.modal-subtitle { overflow-wrap:anywhere; }
+    .modal-head > div { min-width:0; }
+    .modal-grid { grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); }
+    .modal { max-height:calc(100dvh - 40px); }
+    .modal-head,.modal-actions { flex-shrink:0; }
+    .modal-backdrop.open .modal { animation:panel-in .22s ease both; }
+    .list.section-enter { animation:section-in .2s ease both; }
+    .toast { animation:panel-in .2s ease both; bottom:calc(22px + env(safe-area-inset-bottom)); }
+    .hidden-status { display:none; position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:130; background:#ffffff; border:1px solid var(--line); border-radius:999px; padding:10px 18px; box-shadow:var(--shadow); max-width:calc(100% - 32px); font-size:13px; }
+    .hidden-status.busy { display:flex; align-items:center; gap:12px; }
+    .loader { margin:0; }
+    .loader span { display:none; }
+    .mobile-menu,.drawer-heading,.drawer-shade { display:none; }
+    .list,.box-body,.modal-grid,.modal-email-body { scrollbar-width:thin; scrollbar-color:#b1b1b1 transparent; }
+    @keyframes panel-in { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes section-in { from { opacity:.35; transform:translateX(10px); } to { opacity:1; transform:translateX(0); } }
+    @media(max-width:1100px) { .workspace { grid-template-columns:200px minmax(0,1fr); } .email-pair { grid-template-columns:1fr; } .actions button { min-width:0; } .topbar { gap:10px; } }
+    @media(max-width:900px) {
+      .shell { padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom)); gap:12px; height:100dvh; }
+      .topbar { display:grid; grid-template-columns:44px minmax(0,1fr); gap:10px; }
+      .mobile-menu { display:inline-flex; align-items:center; justify-content:center; padding:0; font-size:21px; letter-spacing:2px; width:44px; height:44px; }
+      .actions { grid-column:1 / -1; display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:7px; width:100%; }
+      .actions button { width:100%; padding:10px 6px; min-width:0; font-size:12px; }
+      .workspace { display:block; overflow:hidden; }
+      .left-rail { position:fixed; z-index:110; inset:0 auto 0 0; width:min(320px,86vw); height:100dvh; display:flex; flex-direction:column; padding: max(16px,env(safe-area-inset-top)) 14px max(16px,env(safe-area-inset-bottom)); background:#f6f6f6; overflow-y:auto; transform:translateX(-105%); visibility:hidden; transition:transform .25s ease,visibility .25s; box-shadow:12px 0 40px #29292926; }
+      .drawer-heading { display:flex; justify-content:space-between; align-items:center; }
+      .drawer-shade { display:block; position:fixed; inset:0; width:100%; height:100%; background:#27272766; border-radius:0; padding:0; z-index:105; opacity:0; visibility:hidden; transition:opacity .25s,visibility .25s; }
+      .drawer-shade:hover { transform:none; }
+      body.menu-open .left-rail { visibility:visible; transform:translateX(0); }
+      body.menu-open .drawer-shade { visibility:visible; opacity:1; }
+      .sidebar { display:grid; grid-template-columns:1fr; flex-shrink:0; }
+      .stats { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; height:auto; min-height:170px; flex-shrink:0; }
+      .stat { padding:12px; }.stat-number { font-size:23px; }.stat-label { font-size:12px; }
+      .main-panel { height:100%; padding:14px 10px 10px; }
+      .section-head { margin-bottom:8px; }.section-head h2 { font-size:25px; }
+      .section-note { font-size:13px; line-height:1.5; margin-bottom:12px; }
+      .list { padding:0 2px 8px; scrollbar-gutter:auto; gap:12px; }
+      .card { padding:13px; }.card-top { flex-wrap:wrap; }.card-title { font-size:19px; }
+      .card-top > div { flex:1 1 180px; }.meta { font-size:13px; }
+      .card-actions button { flex:1; }.box-body { padding:12px; }
+      .modal-backdrop { padding:0; align-items:stretch; }
+      .modal { width:100%; height:100dvh; max-height:100dvh; border-radius:0; border:0; }
+      .modal-head { padding:max(14px,env(safe-area-inset-top)) 14px 12px; gap:8px; }.modal-title { font-size:21px; }.modal-subtitle { font-size:12px; }
+      .modal-grid { grid-template-columns:minmax(0,1fr); padding:12px; gap:12px; flex:1; align-content:start; }
+      .modal-section { overflow:visible; }.modal-email-body { max-height:240px; padding:12px; }.thread-message-body { max-height:200px; }
+      .modal-textarea,.modal-textarea[contenteditable="true"] { min-height:220px; max-height:45dvh; font-size:16px; }
+      .modal-form { padding:12px; }.modal-actions { padding:10px 12px max(12px,env(safe-area-inset-bottom)); }.modal-actions button { width:100%; }
+      .modal-input,.reply-subject,.reply-body { font-size:16px; }
+      .toast { left:12px; right:12px; bottom:calc(66px + env(safe-area-inset-bottom)); max-width:none; font-size:14px; }
+    }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+
+
+    /* Clear navigation and comfortable small-screen reading. */
+    button { -webkit-tap-highlight-color:transparent; }
+    .main-panel { background:#ffffff; }
+    .section-head { flex-shrink:0; }
+    .section-head h2 { color:#343434; }
+    .section-note { max-width:80ch; }
+    .card { box-shadow:0 2px 8px #32323205; }
+    .nav-btn { min-height:52px; }
+    .nav-btn.active { box-shadow:inset 3px 0 #656565; }
+    .stat-number { color:#454545; font-variant-numeric:tabular-nums; }
+    .badge { white-space:normal; overflow-wrap:anywhere; }
+    .modal-close { flex-shrink:0; min-width:64px; }
+    .reply-tabs { display:none; }
+    .draft-hint { color:#626262; font-size:12px; align-self:center; margin-right:auto; }
+    .modal-actions { align-items:center; }
+    .menu-icon { display:flex; flex-direction:column; gap:4px; width:21px; }
+    .menu-icon span { display:block; width:21px; height:2px; border-radius:2px; background:currentColor; }
+    .menu-word { font-size:10px; font-weight:700; line-height:1; letter-spacing:0; }
+    .empty { padding:26px 20px; border:1px solid #e6e6e6; background:#f9f9f9; font-weight:500; }
+    .thread-meta { font-weight:500; }
+    .modal-grid { overscroll-behavior:contain; }
+    @media (hover:hover) { .nav-btn:hover:not(.active) { background:#f4f4f4; } .card:hover { border-color:#c3c3c3; } }
+    @media (max-width:1100px) and (min-width:901px) { .connected { font-size:18px; } .actions { gap:6px; } .actions button { padding:10px; font-size:12px; } }
+    @media (max-width:900px) {
+      .shell { padding-left:max(10px,env(safe-area-inset-left)); padding-right:max(10px,env(safe-area-inset-right)); }
+      .topbar { grid-template-columns:52px minmax(0,1fr); align-items:center; gap:9px 11px; }
+      .mobile-menu { display:flex; flex-direction:column; gap:6px; width:52px; height:52px; border-color:#dadada; background:#ffffff; color:#454545; }
+      .brand-caption { font-size:9px; letter-spacing:.12em; margin-bottom:4px; }
+      .connected { font-size:clamp(13px,3.6vw,20px); line-height:1.3; overflow-wrap:anywhere; }
+      .actions { gap:6px; }
+      .actions button { min-height:46px; height:auto; font-size:12px; white-space:normal; line-height:1.25; padding:9px 5px; }
+      .kill-switch.off { background:#f3f3f3; border-color:#d4d4d4; color:#616161; }
+      .main-panel { border-radius:16px; padding:15px 10px 8px; }
+      .section-head { margin:0 4px 7px; }
+      .section-head h2 { font-size:24px; }
+      .section-note { margin:0 4px 12px; font-size:12px; line-height:1.5; }
+      .card { padding:14px; border-radius:13px; }
+      .card-top { gap:10px; }.card-title { font-size:18px; line-height:1.35; }
+      .expand-btn { min-height:44px; padding:10px 14px; }
+      .email-pair { gap:10px; }.box-body,.reply-preview { max-height:190px; min-height:100px; font-size:15px; }
+      .box-body.reply-preview-clean { min-height:100px; }.summary { font-size:14px; padding:11px; }
+      .drawer-heading { padding:4px 3px 10px; border-bottom:1px solid #e3e3e3; }
+      .drawer-heading button { width:44px; height:44px; padding:0; }
+      .left-rail { gap:16px; width:min(330px,88vw); }
+      .sidebar { gap:7px; padding:8px; }.nav-btn { padding:14px; font-size:15px; }
+      .stats { margin-top:auto; min-height:180px; }
+      .modal { height:var(--visible-height,100dvh); max-height:var(--visible-height,100dvh); }
+      .modal-head { padding-bottom:10px; background:white; }.modal-title { font-size:19px; line-height:1.3; }
+      .modal-subtitle { font-size:12px; line-height:1.4; }.modal-close { min-width:60px; padding:10px; }
+      .reply-tabs { display:flex; flex-shrink:0; gap:4px; padding:5px; margin:10px 12px 0; border-radius:12px; background:#f2f2f2; }
+      .reply-tabs button { flex:1; padding:10px 8px; min-height:44px; background:transparent; color:#5f5f5f; }
+      .reply-tabs button[aria-selected="true"] { background:#ffffff; color:#363636; box-shadow:0 2px 6px #39393915; }
+      .modal-grid { display:block; padding:12px; }
+      .modal-grid[data-view="compose"] #conversationPanel,.modal-grid[data-view="conversation"] #composePanel { display:none; }
+      .modal-section { border:0; background:white; }
+      .modal-section-title { display:none; }
+      .modal-form { padding:0 2px; gap:12px; }
+      .modal-input { padding:12px; min-height:46px; border-radius:10px; }
+      .modal-textarea,.modal-textarea[contenteditable="true"] { min-height:220px; max-height:none; border-radius:12px; padding:14px; }
+      .modal-email-body { max-height:none; padding:0; overflow:visible; }
+      .thread-message-body { max-height:none; overflow:visible; }
+      .modal-actions { gap:7px; flex-wrap:wrap; padding-top:9px; }
+      .draft-hint { width:100%; margin:0; text-align:center; font-size:11px; }
+      .modal-actions button { min-height:48px; }
+      .hidden-status { pointer-events:none; font-size:12px; padding:9px 12px; }
+      body:has(.modal-backdrop.open) .hidden-status { bottom:110px; }
+      .toast { bottom:calc(125px + env(safe-area-inset-bottom)); }
+    }
+    @media (max-height:550px) and (max-width:900px) {
+      .brand-caption,.section-note,.modal-subtitle,.draft-hint { display:none; }
+      .topbar { grid-template-columns:52px minmax(0,1fr); }
+      .shell { gap:7px; padding-top:6px; padding-bottom:6px; }
+      .modal-head { padding:7px 12px; }.reply-tabs { margin-top:5px; padding:3px; }
+      .modal-actions { padding:6px 12px; }
+    }
+
+  
+    /* Monochrome theme: white surfaces, black actions, neutral supporting text. */
+    :root { color-scheme:light; --bg:#f5f5f5; --panel:#fff; --text:#111; --muted:#626262;
+      --line:#e2e2e2; --soft:#fafafa; --black:#111; --black-soft:#f0f0f0;
+      --blue:#111; --blue-soft:#f3f3f3; --green:#222; --green-soft:#f3f3f3;
+      --red:#222; --red-soft:#f3f3f3; --amber:#333; --amber-soft:#f8f8f8;
+      --purple:#333; --purple-soft:#f4f4f4; --shadow:0 6px 24px rgba(0,0,0,.045); }
+    .panel,.card,.modal,.left-rail,.main-panel { background:#fff; }
+    .connected,.section-head h2,.stat-number,.card-title,.modal-title { color:#111; }
+    .brand-caption,.section-note,.stat-label,.draft-hint,.modal-subtitle { color:#626262; }
+    .primary,.success,.expand-btn,.kill-switch { background:#111; border-color:#111; color:#fff; }
+    .primary:hover,.success:hover,.expand-btn:hover,.kill-switch:hover { background:#292929; }
+    .secondary,.mobile-menu,.modal-close { background:#fff; border:1px solid #d6d6d6; color:#111; }
+    .kill-switch.off { background:#fff; color:#555; border:1px solid #d6d6d6; }
+    .kill-switch.off:hover { background:#f2f2f2; }
+    .nav-btn { background:#fff; color:#444; border:1px solid transparent; }
+    .nav-btn.active { background:#111; color:#fff; border-color:#111; box-shadow:none; }
+    .nav-btn.active .pill { background:#fff; color:#111; }
+    .pill { background:#f0f0f0; color:#444; }
+    .stat { background:#fafafa; border-color:#e8e8e8; }
+    .empty,.summary,.briefing { background:#fafafa; border-color:#e3e3e3; color:#454545; }
+    .card { border-color:#e1e1e1; box-shadow:0 2px 10px rgba(0,0,0,.025); }
+    .badge,.badge.green,.badge.blue,.badge.purple,.badge.red { background:#f4f4f4; color:#333; border-color:#d9d9d9; }
+    .reply-tabs { background:#f0f0f0; }
+    .reply-tabs button { color:#626262; }
+    .reply-tabs button[aria-selected="true"] { background:#111; color:#fff; box-shadow:none; }
+    .drawer-shade { background:rgba(0,0,0,.4); }
+    .toast { background:#111; color:#fff; }
+    :focus-visible { outline:3px solid #111; outline-offset:3px; }
+    .nav-btn.active:focus-visible { outline-offset:4px; }
+    .list,.box-body,.modal-grid,.modal-email-body { scrollbar-color:#b0b0b0 transparent; }
+    @media(hover:hover) {
+      .nav-btn:hover:not(.active) { background:#f4f4f4; }
+      .secondary:hover,.mobile-menu:hover,.modal-close:hover { background:#f5f5f5; border-color:#aaa; }
+      .card:hover { border-color:#bdbdbd; }
+    }
+    @media(min-width:901px) { .left-rail { background:transparent; } }
+</style>
 </head>
 
 <body>
   <div class="shell">
     <header class="topbar">
+      <button class="mobile-menu secondary" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="navigationDrawer" onclick="toggleMenu()"><span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span><span class="menu-word">Menu</span></button>
       <div class="brand">
-        <div class="connected" id="connectedEmail">success@pharmacyprep.com</div>
+        <span class="brand-caption">PHARMACY PREP · INBOX</span><div class="connected" id="connectedEmail">success@pharmacyprep.com</div>
       </div>
 
       <div class="actions">
-        <button class="kill-switch" onclick="toggleAutoReply()" id="killSwitchBtn">Auto Reply: On</button>
+        <button class="kill-switch" onclick="toggleAutoReply()" id="killSwitchBtn">Auto Reply: Off</button>
         <button class="primary" onclick="fullScanNow()" id="scanBtn">Full Scan</button>
-        <button class="secondary" onclick="refreshNow()">Refresh</button>
+        <button class="secondary" id="refreshBtn" onclick="refreshNow()">Refresh</button>
       </div>
     </header>
 
+    <button class="drawer-shade" id="drawerShade" tabindex="-1" aria-label="Close navigation" onclick="toggleMenu(false)"></button>
     <section class="workspace">
-      <div class="left-rail">
-        <nav class="panel sidebar">
+      <div class="left-rail" id="navigationDrawer"><div class="drawer-heading"><strong>Your workspace</strong><button class="secondary" aria-label="Close navigation" onclick="toggleMenu(false)">✕</button></div>
+        <nav class="panel sidebar" aria-label="Inbox sections">
           <button class="nav-btn" onclick="setSection('orders')" id="nav-orders">Orders <span class="pill" id="pill-orders">0</span></button>
           <button class="nav-btn active" onclick="setSection('work')" id="nav-work">Work Email <span class="pill" id="pill-work">0</span></button>
           <button class="nav-btn" onclick="setSection('renewals')" id="nav-renewals">Renewals <span class="pill" id="pill-renewals">0</span></button>
@@ -998,7 +1147,7 @@
 
       <main class="panel main-panel">
         <div class="section-head">
-          <h2 id="sectionTitle">Work Email</h2>
+          <h2 id="sectionTitle" tabindex="-1">Work Email</h2>
           <span class="badge blue" id="sectionBadge">Needs response</span>
         </div>
         <p class="section-note" id="sectionNote"></p>
@@ -1007,7 +1156,7 @@
     </section>
   </div>
 
-  <div class="hidden-status" aria-hidden="true">
+  <div class="hidden-status" role="status" aria-live="polite">
     <div id="statusText">Ready</div>
     <div class="loader" id="loadingBox"><div class="spinner"></div><span>Working...</span></div>
   </div>
@@ -1024,35 +1173,40 @@
         <button class="modal-close" type="button" onclick="closeReplyModal()">Close</button>
       </div>
 
-      <div class="modal-grid">
-        <section class="modal-section">
-          <div class="modal-section-title">Original Email</div>
+      <div class="reply-tabs" role="tablist" aria-label="Reply view">
+        <button type="button" role="tab" id="conversationTab" aria-controls="conversationPanel" aria-selected="false" tabindex="-1" onclick="setReplyView('conversation')">Read email</button>
+        <button type="button" role="tab" id="composeTab" aria-controls="composePanel" aria-selected="true" onclick="setReplyView('compose')">Write reply</button>
+      </div>
+      <div class="modal-grid" data-view="compose">
+        <section class="modal-section" id="conversationPanel">
+          <div class="modal-section-title">Email conversation</div>
           <div class="modal-email-body" id="modalOriginal"></div>
         </section>
 
-        <section class="modal-section">
-          <div class="modal-section-title">Response</div>
+        <section class="modal-section" id="composePanel">
+          <div class="modal-section-title">Your reply</div>
           <div class="modal-form">
-            <div class="modal-label">To</div>
-            <input class="modal-input" id="modalTo" placeholder="recipient@example.com" />
-            <div class="modal-label">Subject</div>
+            <label class="modal-label" for="modalTo">To</label>
+            <input class="modal-input" id="modalTo" type="email" inputmode="email" autocomplete="email" placeholder="recipient@example.com" />
+            <label class="modal-label" for="modalSubject">Subject</label>
             <input class="modal-input" id="modalSubject" />
-            <select class="template-select" id="modalTemplateSelect" onchange="applyTemplate(this.value)">
+            <select class="template-select" id="modalTemplateSelect" aria-label="Choose a reply template" onchange="applyTemplate(this.value)">
               <option value="">Templates</option>
             </select>
-            <div class="modal-label">Reply</div>
-            <div class="modal-textarea" id="modalBody" contenteditable="true"></div>
+            <div class="modal-label" id="replyLabel">Reply</div>
+            <div class="modal-textarea" id="modalBody" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="replyLabel"></div>
           </div>
         </section>
       </div>
 
       <div class="modal-actions">
+        <span class="draft-hint" id="draftHint" role="status">Review your reply before sending</span>
         <button class="success" type="button" id="modalSendBtn">Send Email</button>
       </div>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     let state = {
@@ -1224,7 +1378,7 @@
       const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
 
       if (!orders.length) {
-        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Full Scan</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No orders here yet. Choose <strong>Full Scan</strong> to check Gmail.</div>`;
         return;
       }
 
@@ -1297,7 +1451,7 @@
               <h3 class="card-title">${escapeHtml(email.title || "Email")}</h3>
               ${email.important_reason ? `<div class="summary" style="margin-top:12px; margin-bottom:0;">${escapeHtml(email.important_reason)}</div>` : ""}
             </div>
-            ${reply ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(reply.thread_id)}')">View</button>` : `<span class="badge green">${escapeHtml(email.status || "Handled")}</span>`}
+            ${reply ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(reply.thread_id)}')">Review reply</button>` : `<span class="badge green">${escapeHtml(email.status || "Handled")}</span>`}
           </div>
           <div class="meta">
             <strong>From:</strong> ${escapeHtml(original.from || "Unknown sender")}<br>
@@ -1316,7 +1470,7 @@
 
           ${reply ? `
             <div class="card-actions">
-              <button class="success" onclick="sendSuggestedReply('${escapeForJs(reply.thread_id)}')">Send Email</button>
+              <button class="success" onclick="openReplyModal('${escapeForJs(reply.thread_id)}')">Review &amp; reply</button>
             </div>
           ` : ""}
         </article>
@@ -1404,7 +1558,7 @@
       setHeader("AI Summary", "Daily review", "A clean overview of what the latest scan found.");
       const friendly = state.briefing && !state.briefing.includes("No summary yet")
         ? state.briefing.replaceAll("# Daily Gmail Briefing", "Daily Gmail Briefing")
-        : "No summary yet. Click Full Scan to review emails from June 1 onward.";
+        : "Your daily overview will appear here after a scan. Choose Full Scan to get started.";
       document.getElementById("mainList").innerHTML = `<div class="briefing">${escapeHtml(friendly)}</div>`;
     }
 
@@ -1453,7 +1607,7 @@
       if (state.hasInitialAutoScan || state.automationSettings.auto_scan_enabled === false) return;
       state.hasInitialAutoScan = true;
       setTimeout(() => {
-        if (!state.isScanning) scanGmail({ silent: true, automatic: true });
+        if (!state.isScanning && !state.currentModalThreadId) scanGmail({ silent: true, automatic: true });
       }, 900);
     }
 
@@ -2182,11 +2336,11 @@
     }
 
     function renderOrders() {
-      setHeader("Orders", "", "Successful new orders are checked against Gmail Sent automatically, then auto-sent when no enrollment or welcome confirmation exists. Failed orders are hidden.");
+      setHeader("Orders", "", "Review recent orders and welcome replies. Gmail Sent is checked for previous confirmations; automatic sending follows your server settings.");
       const list = document.getElementById("mainList");
       const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
       if (!orders.length) {
-        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Full Scan</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No orders here yet. Choose <strong>Full Scan</strong> to check Gmail.</div>`;
         return;
       }
       list.innerHTML = orders.map(order => {
@@ -2281,11 +2435,11 @@
 
     // Final order UI patch: no manual Check Sent button. The backend already checks Gmail Sent automatically.
     function renderOrders() {
-      setHeader("Orders", "", "Successful new orders are checked against Gmail Sent automatically, then auto-sent when no enrollment or welcome confirmation exists. Failed orders are hidden.");
+      setHeader("Orders", "", "Review recent orders and welcome replies. Gmail Sent is checked for previous confirmations; automatic sending follows your server settings.");
       const list = document.getElementById("mainList");
       const orders = sortNewestFirst(state.orders, order => order.sort_ts || order.processed_at || (order.original && order.original.date));
       if (!orders.length) {
-        list.innerHTML = `<div class="empty">No recent orders were found yet. Click <strong>Full Scan</strong> to check Gmail.</div>`;
+        list.innerHTML = `<div class="empty">No orders here yet. Choose <strong>Full Scan</strong> to check Gmail.</div>`;
         return;
       }
       list.innerHTML = orders.map(order => {
@@ -2309,7 +2463,7 @@
                 </div>
               </div>
               ${isWaiting
-                ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(threadId)}')">Send</button>`
+                ? `<button class="expand-btn" type="button" onclick="openReplyModal('${escapeForJs(threadId)}')">Review reply</button>`
                 : `<span class="badge green">${escapeHtml(statusLabel)}</span>`}
             </div>
           </article>
@@ -2317,6 +2471,242 @@
       }).join("");
     }
 
+
+    // Mobile navigation and interaction reliability.
+    let toastTimer, loadingCount = 0, dashboardRequest = null, menuReturnFocus = null, replyReturnFocus = null;
+    const replyDrafts = new Map();
+    const sendingThreads = new Set();
+    const mobileQuery = matchMedia('(max-width: 900px)');
+    function toggleMenu(force) {
+      const open = mobileQuery.matches && (typeof force === 'boolean' ? force : !document.body.classList.contains('menu-open'));
+      if (open) menuReturnFocus = document.activeElement;
+      document.body.classList.toggle('menu-open', open);
+      document.getElementById('menuToggle').setAttribute('aria-expanded', String(open));
+      document.getElementById('menuToggle').setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      document.getElementById('navigationDrawer').inert = mobileQuery.matches && !open;
+      document.querySelector('.main-panel').inert = open;
+      document.querySelector('.topbar').inert = open;
+      if (open) document.querySelector('#navigationDrawer button').focus();
+      else if (menuReturnFocus) { menuReturnFocus.focus(); menuReturnFocus = null; }
+    }
+    mobileQuery.addEventListener('change', () => toggleMenu(false));
+    const originalSetSection = setSection;
+    setSection = function(section) {
+      if (!['orders','work','renewals','personal','summary'].includes(section)) return;
+      originalSetSection(section);
+      document.querySelectorAll('.nav-btn').forEach(button => button.setAttribute('aria-current', button.id === `nav-${section}` ? 'page' : 'false'));
+      toggleMenu(false);
+      document.getElementById('sectionTitle').focus({preventScroll:true});
+      const list = document.getElementById('mainList');
+      list.scrollTop = 0;
+      list.classList.remove('section-enter'); void list.offsetWidth; list.classList.add('section-enter');
+    };
+    showToast = function(message) {
+      clearTimeout(toastTimer);
+      const toast = document.getElementById('toast');
+      toast.textContent = message; toast.style.display = 'block';
+      toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 6500);
+    };
+    setLoading = function(busy, message = 'Working…') {
+      loadingCount = Math.max(0, loadingCount + (busy ? 1 : -1));
+      const active = loadingCount > 0;
+      document.querySelector('.hidden-status').classList.toggle('busy', active);
+      document.getElementById('loadingBox').style.display = active ? 'flex' : 'none';
+      document.getElementById('statusText').textContent = active ? (busy ? message : 'Finishing up…') : 'Ready';
+      document.getElementById('scanBtn').disabled = active;
+      document.getElementById('refreshBtn').disabled = active;
+    };
+    api = async function(path, options = {}) {
+      let response;
+      try { response = await fetch(path, { ...options, headers: { 'Content-Type':'application/json', ...(options.headers || {}) } }); }
+      catch { throw new Error('Connection interrupted. Check your connection. If you were sending, check Gmail Sent before trying again.'); }
+      if (response.redirected || response.status === 401) throw new Error('Your session needs attention. Sign in again, then refresh this page.');
+      if (!(response.headers.get('content-type') || '').includes('application/json')) throw new Error(`The server could not complete this request (${response.status}). Please refresh and try again.`);
+      const data = await response.json();
+      if (!response.ok || data.ok === false) throw new Error(data.error || 'Something went wrong. Please try again.');
+      return data;
+    };
+    const originalDashboardLoad = loadDashboard;
+    loadDashboard = function() {
+      if (dashboardRequest) return dashboardRequest;
+      const sectionBeforeLoad = state.activeSection;
+      const scrollTop = document.getElementById('mainList').scrollTop;
+      dashboardRequest = originalDashboardLoad().finally(() => {
+        if (state.activeSection === sectionBeforeLoad) document.getElementById('mainList').scrollTop = scrollTop;
+        dashboardRequest = null;
+      });
+      return dashboardRequest;
+    };
+    // Configure timers only when settings change; dashboard polling must not postpone scans.
+    let scanIntervalMs = 0;
+    startAutoRefreshLoops = function() {
+      if (!state.dashboardTimer) state.dashboardTimer = setInterval(() => {
+        if (!document.hidden && !state.isScanning && !state.currentModalThreadId && !sendingThreads.size) loadDashboard();
+      }, 30000);
+      const minutes = Number(state.automationSettings.auto_scan_minutes);
+      const next = state.automationSettings.auto_scan_enabled === false ? 0 : Math.max(1, Number.isFinite(minutes) ? minutes : 1) * 60000;
+      if (next === scanIntervalMs) return;
+      clearInterval(state.autoScanTimer); scanIntervalMs = next;
+      state.autoScanTimer = next ? setInterval(() => {
+        if (!document.hidden && !state.isScanning && !state.currentModalThreadId && !sendingThreads.size) scanGmail({silent:true, automatic:true});
+      }, next) : null;
+    };
+    scanGmail = async function(options = {}) {
+      if (state.isScanning || sendingThreads.size) return;
+      state.isScanning = true; setLoading(true, options.forceFull ? 'Scanning Gmail. This may take a moment…' : 'Checking for new emails…');
+      try {
+        const data = await api('/api/scan', {method:'POST', body:JSON.stringify({force_full:Boolean(options.forceFull)})});
+        if (!options.silent) showToast(data.message || 'Your inbox is up to date.');
+        await loadDashboard();
+      } catch (error) { showToast(error.message); }
+      finally { state.isScanning = false; setLoading(false); }
+    };
+    let togglingAutomation = false;
+    toggleAutoReply = async function() {
+      if (togglingAutomation) return;
+      togglingAutomation = true;
+      const button = document.getElementById('killSwitchBtn'); button.disabled = true;
+      try {
+        const enabled = state.automationSettings.auto_reply_enabled !== true;
+        const data = await api('/api/automation-settings', {method:'POST',body:JSON.stringify({auto_reply_enabled:enabled})});
+        state.automationSettings = data.settings || state.automationSettings;
+        syncKillSwitchButton(); showToast(state.automationSettings.auto_reply_enabled ? 'Auto reply is on.' : 'Auto reply is off. Manual replies are still available; order welcomes follow your server settings.');
+      } catch (error) { showToast(error.message); }
+      finally { togglingAutomation = false; button.disabled = false; }
+    };
+    // This app.py includes saved thread previews but no live history or template routes.
+    loadTemplates = async function() { state.templates = []; };
+    fetchAndRenderThreadHistory = async function(threadId, context) {
+      if (String(state.currentModalThreadId) !== String(threadId)) return;
+      document.getElementById('modalOriginal').innerHTML = renderThreadHistory(context);
+    };
+    const originalOpenReply = openReplyModal;
+    openReplyModal = function(threadId) {
+      if (sendingThreads.size) return;
+      replyReturnFocus = document.activeElement;
+      originalOpenReply(threadId);
+      if (!state.currentModalThreadId) return;
+      const draft = replyDrafts.get(String(threadId));
+      if (draft) {
+        document.getElementById('modalTo').value = draft.to;
+        document.getElementById('modalSubject').value = draft.subject;
+        document.getElementById('modalBody').innerHTML = draft.html;
+      }
+      document.getElementById('modalTemplateSelect').hidden = !state.templates.length;
+      document.querySelector('.shell').inert = true;
+      document.querySelector('.modal-close').focus({preventScroll:true});
+      setReplyView('compose');
+      document.getElementById('draftHint').textContent = draft ? 'Draft restored · kept until this page closes' : 'Review your reply before sending';
+      updateViewportHeight();
+      document.querySelector('.modal-grid').scrollTop = 0;
+    };
+    function rememberReply() {
+      if (!state.currentModalThreadId) return;
+      document.getElementById('draftHint').textContent = 'Draft kept until this page closes';
+      replyDrafts.set(String(state.currentModalThreadId), {to:document.getElementById('modalTo').value,subject:document.getElementById('modalSubject').value,html:document.getElementById('modalBody').innerHTML});
+    }
+    document.querySelector('.modal-form').addEventListener('input', rememberReply);
+    document.getElementById('modalBody').addEventListener('paste', event => {
+      event.preventDefault();
+      const text = event.clipboardData.getData('text/plain');
+      const selection = getSelection();
+      if (!selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      if (!document.getElementById('modalBody').contains(range.commonAncestorContainer)) return;
+      range.deleteContents();
+      const node = document.createTextNode(text); range.insertNode(node);
+      range.setStartAfter(node); range.collapse(true); selection.removeAllRanges(); selection.addRange(range);
+      rememberReply();
+    });
+    closeReplyModal = function() {
+      if (sendingThreads.size) return;
+      document.getElementById('replyModal').classList.remove('open');
+      state.currentModalThreadId = '';
+      document.querySelector('.shell').inert = false;
+      if (replyReturnFocus && replyReturnFocus.isConnected) replyReturnFocus.focus({preventScroll:true});
+    };
+    sendSuggestedReply = async function(threadId) {
+      threadId = String(threadId);
+      if (sendingThreads.size || state.isScanning) { showToast('Please wait for the current action to finish.'); return; }
+      if (state.currentModalThreadId !== threadId) { openReplyModal(threadId); return; }
+      const toBox = document.getElementById('modalTo');
+      const to = toBox.value.trim(), subject = document.getElementById('modalSubject').value.trim();
+      const bodyBox = document.getElementById('modalBody'), body = (bodyBox.innerText || bodyBox.textContent || '').trim();
+      if (!to || !toBox.checkValidity()) { showToast('Enter a valid recipient email address.'); toBox.focus(); return; }
+      if (!subject || !body) { showToast('Add a subject and a reply before sending.'); return; }
+      sendingThreads.add(threadId);
+      const send = document.getElementById('modalSendBtn'); send.disabled = true; send.textContent = 'Sending…';
+      document.querySelector('.modal-close').disabled = true;
+      setLoading(true, 'Sending your reply…');
+      let sent = false;
+      try {
+        const data = await api(`/api/replies/${encodeURIComponent(threadId)}/send`, {method:'POST', body:JSON.stringify({to,subject,body,body_html:bodyBox.innerHTML})});
+        replyDrafts.delete(threadId); sent = true; showToast(data.message || 'Your reply has been sent.');
+      } catch (error) { showToast(error.message); }
+      finally {
+        sendingThreads.delete(threadId); send.disabled = false; send.textContent = 'Send Email'; document.querySelector('.modal-close').disabled = false; setLoading(false);
+      }
+      if (sent) { closeReplyModal(); await loadDashboard(); }
+    };
+    document.addEventListener('keydown', event => {
+      const modalOpen = document.getElementById('replyModal').classList.contains('open');
+      const menuOpen = document.body.classList.contains('menu-open');
+      if (event.key === 'Escape') { if (modalOpen) closeReplyModal(); else if (menuOpen) toggleMenu(false); }
+      if (event.key !== 'Tab' || (!modalOpen && !menuOpen)) return;
+      const root = document.querySelector(modalOpen ? '.modal' : '#navigationDrawer');
+      const items = [...root.querySelectorAll('button,input,select,[contenteditable="true"],[tabindex="0"]')].filter(el => !el.disabled && el.getClientRects().length && !el.hidden);
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+    // Horizontal swipe from the edge opens the drawer; swipe left closes it.
+    let swipeStart = null;
+    document.addEventListener('touchstart', event => {
+      if (!mobileQuery.matches || state.currentModalThreadId || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      swipeStart = {x:touch.clientX, y:touch.clientY};
+    }, {passive:true});
+    document.addEventListener('touchend', event => {
+      if (!swipeStart || !event.changedTouches.length) return;
+      const touch = event.changedTouches[0], dx = touch.clientX - swipeStart.x, dy = touch.clientY - swipeStart.y;
+      if (Math.abs(dx) > 65 && Math.abs(dy) < 40) {
+        if (dx > 0 && swipeStart.x < 28) toggleMenu(true);
+        if (dx < 0 && document.body.classList.contains('menu-open')) toggleMenu(false);
+      }
+      swipeStart = null;
+    }, {passive:true});
+    document.getElementById('nav-work').setAttribute('aria-current','page');
+
+
+    function setReplyView(view) {
+      view = view === 'conversation' ? 'conversation' : 'compose';
+      document.querySelector('.modal-grid').dataset.view = view;
+      for (const name of ['conversation','compose']) {
+        const button = document.getElementById(name + 'Tab');
+        button.setAttribute('aria-selected', String(name === view));
+        button.tabIndex = name === view ? 0 : -1;
+      }
+      document.querySelector('.modal-grid').scrollTop = 0;
+      const send = document.getElementById('modalSendBtn');
+      // A visible send button always corresponds to the visible editor on phones.
+      send.hidden = mobileQuery.matches && view !== 'compose';
+    }
+    document.querySelector('.reply-tabs').addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const current = document.querySelector('.modal-grid').dataset.view;
+      const next = event.key === 'Home' ? 'conversation' : event.key === 'End' ? 'compose' : current === 'compose' ? 'conversation' : 'compose';
+      setReplyView(next); document.getElementById(next + 'Tab').focus();
+    });
+    function updateViewportHeight() {
+      const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--visible-height', Math.round(height) + 'px');
+    }
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('resize', updateViewportHeight);
+    mobileQuery.addEventListener('change', () => setReplyView(document.querySelector('.modal-grid').dataset.view));
+    updateViewportHeight();
+    toggleMenu(false);
 
     loadDashboard();
   </script>
