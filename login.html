@@ -2,13 +2,12 @@
 <html lang="en-CA">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Pharmacy Prep Gmail Assistant – Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --bg: #f0f0ee;
       --card: #ffffff;
@@ -18,7 +17,6 @@
       --muted: rgba(17,17,17,.48);
       --pill-bg: rgba(0,0,0,.05);
     }
-
     html, body {
       height: 100%;
       font-family: 'DM Sans', system-ui, sans-serif;
@@ -28,7 +26,6 @@
       flex-direction: column;
       overflow: hidden;
     }
-
     .bg-grid {
       position: fixed; inset: 0; z-index: 0;
       background-image:
@@ -46,7 +43,6 @@
       background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0,0,0,.04) 0%, transparent 70%);
       pointer-events: none;
     }
-
     nav {
       position: relative; z-index: 10;
       height: 56px;
@@ -62,17 +58,15 @@
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
     }
-    .nav-logo-icon i { color: #f0f0ee; width: 16px; height: 16px; }
+    .nav-logo-icon i, .nav-logo-icon svg { color: #f0f0ee; width: 16px; height: 16px; }
     .nav-logo-title { font-weight: 700; font-size: .9rem; }
     .nav-logo-sub { font-size: .7rem; color: var(--muted); margin-left: 2px; }
-
     .page {
       position: relative; z-index: 5;
       flex: 1; display: flex;
       align-items: center; justify-content: center;
       padding: 24px;
     }
-
     .card {
       width: 100%; max-width: 420px;
       background: var(--card);
@@ -86,7 +80,6 @@
       from { opacity:0; transform:translateY(20px) scale(.98); }
       to { opacity:1; transform:translateY(0) scale(1); }
     }
-
     .card-eyebrow {
       font-size: .72rem; font-weight: 700;
       text-transform: uppercase; letter-spacing: .12em;
@@ -94,7 +87,6 @@
       display: flex; align-items: center; gap: 7px;
     }
     .card-eyebrow::before { content:''; width:18px; height:1px; background:var(--muted); }
-
     .card-title {
       font-family: 'Instrument Serif', serif;
       font-size: 2.1rem; font-weight: 400;
@@ -102,9 +94,7 @@
       margin-bottom: 6px;
     }
     .card-title em { font-style: italic; color: var(--muted); }
-
     .card-sub { font-size: .84rem; color: var(--muted); margin-bottom: 32px; font-weight: 300; }
-
     .error-msg {
       background: rgba(220,38,38,.08);
       border: 1px solid rgba(220,38,38,.25);
@@ -114,7 +104,6 @@
       align-items: center; gap: 8px;
     }
     .error-msg.show { display: flex; }
-
     .field { margin-bottom: 14px; }
     .field label {
       display: block; font-size: .72rem; font-weight: 700;
@@ -130,7 +119,6 @@
     }
     .field input::placeholder { color: rgba(17,17,17,.25); }
     .field input:focus { border-color: var(--border-hover); background: #fff; }
-
     .login-btn {
       width: 100%; padding: 13px; border: none; border-radius: 11px;
       background: #111; color: #f0f0ee;
@@ -142,11 +130,9 @@
     }
     .login-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.15); }
     .login-btn:active { transform: none; }
-    .login-btn i { width: 16px; height: 16px; }
-
+    .login-btn i, .login-btn svg { width: 16px; height: 16px; }
     .divider { height:1px; background:var(--border); margin: 28px 0 18px; }
     .card-footer { font-size: .74rem; color: var(--muted); text-align: center; line-height: 1.6; }
-
     footer {
       position: relative; z-index: 5;
       height: 40px; flex-shrink: 0;
@@ -154,56 +140,74 @@
       display: flex; align-items: center; justify-content: center;
       font-size: .72rem; color: var(--muted);
     }
+
+    /* Mobile compatibility only: preserve the original desktop design. */
+    @media (max-width: 768px), (max-height: 680px) {
+      html { height: auto; min-height: 100%; display: block; overflow-x: hidden; overflow-y: auto; }
+      body { height: auto; min-height: 100vh; min-height: 100svh; overflow: visible; }
+      .page { flex: 1 0 auto; min-width: 0; }
+      .card { min-width: 0; }
+      .nav-logo-icon { flex-shrink: 0; }
+      nav {
+        height: auto; min-height: 56px; flex-wrap: wrap;
+        padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+        gap: 6px 10px;
+      }
+      .page { padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+      footer { height: auto; min-height: 40px; text-align: center; padding: 10px 16px max(10px, env(safe-area-inset-bottom)); }
+    }
+    @media (max-width: 480px) {
+      .card { padding: 32px 24px 28px; }
+      .field input { font-size: 16px; min-height: 46px; }
+      .login-btn { min-height: 46px; touch-action: manipulation; }
+    }
+    @media (max-width: 350px) {
+      .page { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+      .card { padding: 28px 18px 24px; }
+      nav { column-gap: 7px; }
+      .nav-logo-sub { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
-
 <div class="bg-grid"></div>
 <div class="bg-glow"></div>
-
 <nav>
   <div class="nav-logo-icon"><i data-lucide="mail-check"></i></div>
   <span class="nav-logo-title">Gmail Assistant</span>
   <span class="nav-logo-sub">Pharmacy Prep</span>
 </nav>
-
 <div class="page">
   <div class="card">
     <div class="card-eyebrow">Secure Access</div>
     <div class="card-title">Welcome <em>back.</em></div>
     <div class="card-sub">Sign in to manage Pharmacy Prep emails, orders, and suggested replies.</div>
-
     <div class="error-msg" id="errorMsg">
       <i data-lucide="alert-circle" style="width:15px;height:15px;flex-shrink:0;"></i>
       Incorrect username or password. Please try again.
     </div>
-
     <form method="POST" action="/login">
       <input type="hidden" id="nextInput" name="next" value="/">
       <div class="field">
-        <label>Username</label>
-        <input type="text" id="usernameInput" name="username" placeholder="success@pharmacyprep.com" autocomplete="username" required>
+        <label for="usernameInput">Username</label>
+        <input type="text" id="usernameInput" name="username" placeholder="success@pharmacyprep.com" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       </div>
       <div class="field">
-        <label>Password</label>
+        <label for="passwordInput">Password</label>
         <input type="password" id="passwordInput" name="password" placeholder="Enter your password" autocomplete="current-password" required>
       </div>
-
       <button type="submit" class="login-btn">
         <i data-lucide="log-in"></i>
         Sign In
       </button>
     </form>
-
     <div class="divider"></div>
     <div class="card-footer">Pharmacy Prep · Gmail API + AI Email Assistant</div>
   </div>
 </div>
-
 <footer>© 2026 Pharmacy Prep · Gmail Assistant</footer>
-
 <script>
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
   const params = new URLSearchParams(window.location.search);
   if (params.get('error')) document.getElementById('errorMsg').classList.add('show');
   document.getElementById('nextInput').value = params.get('next') || '/';
