@@ -2185,7 +2185,8 @@ def oauth2callback():
     if request.host.startswith("127.0.0.1") or request.host.startswith("localhost"):
         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     flow = _make_gmail_flow()
-    flow.fetch_token(authorization_response=request.url)
+    callback_url = _gmail_redirect_uri() + "?" + request.query_string.decode("utf-8")
+    flow.fetch_token(authorization_response=callback_url)
     creds = flow.credentials
     GMAIL_TOKEN_FILE.write_text(creds.to_json(), encoding="utf-8")
     invalidate_dashboard_cache()
